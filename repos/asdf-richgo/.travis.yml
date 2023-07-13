@@ -1,0 +1,10 @@
+language: c
+os:
+  - linux
+  - osx
+before_script:
+  - git clone https://github.com/asdf-vm/asdf.git
+  - . asdf/asdf.sh
+script:
+  - asdf plugin test richgo https://github.com/paxosglobal/asdf-richgo.git
+

@@ -1,0 +1,74 @@
+#/usr/bin/env bash
+
+set -euo pipefail
+
+# get_platform and get_arch derived from https://github.com/kennyp/asdf-golang/blob/44abfc842f310f1a1c156af168306602541a9f62/bin/install
+get_platform() {
+    local platform="$(uname | tr '[:upper:]' '[:lower:]')"
+
+    case "$platform" in
+        linux|darwin)
+            echo "Platform '${platform}' supported!" >&2
+            ;;
+        *)
+            echo "Platform '${platform}' not supported!" >&2
+            exit 1
+            ;;
+    esac
+
+    echo -n $platform
+}
+
+get_arch() {
+    local arch=""
+
+    case "$(uname -m)" in
+        x86_64|amd64) arch="amd64"; ;;
+        i686|i386) arch="386"; ;;
+        arm64) arch="arm64"; ;;
+        aarch64) arch="arm64"; ;;
+        *)
+            echo "Arch '$(uname -m)' not supported" >&2
+            exit 1
+            ;;
+    esac
+
+    echo -n $arch
+}
+
+get_url() {
+  local version=$1
+  local file=$2
+  echo -n "https://github.com/kyoh86/richgo/releases/download/v${version}/${file}"
+}
+
+install_richgo() {
+    local version=$2
+    local install_path=$3/bin
+    local bin_path=$install_path/richgo
+    local platform=$(get_platform)
+    local arch=$(get_arch)
+    # handy for testing
+    if [ -z "${TEMPDIR-}" ]; then
+      local tmpd=$(mktemp -d)
+    else
+      local tmpd=$TEMPDIR
+    fi
+
+    local tgz_name=richgo_${version}_${platform}_${arch}.tar.gz
+    local cksum_name=richgo_${version}_checksums.txt
+    local tgz_url="$(get_url $version $tgz_name)"
+    local cksum_url="$(get_url $version $cksum_name)"
+    curl -Lo $tmpd/$tgz_name $tgz_url
+    curl -Lo $tmpd/$cksum_name $cksum_url
+    pushd $tmpd > /dev/null
+    sha256sum -c <(grep $tgz_name $cksum_name)
+    tar xzf $tgz_name
+    chmod +x richgo
+    mkdir -p $install_path
+    mv richgo $bin_path
+    popd > /dev/null
+}
+
+install_richgo $ASDF_INSTALL_TYPE $ASDF_INSTALL_VERSION $ASDF_INSTALL_PATH
+
