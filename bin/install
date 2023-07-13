@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+trap cleanup SIGINT SIGTERM ERR
+
+cleanup() {
+  trap - SIGINT SIGTERM ERR
+  rm -rf "$ASDF_INSTALL_PATH"
+  echo
+  echo -e "\e[33mCleanup:\e[m Something went wrong!"
+  echo
+  echo "$(caller): ${BASH_COMMAND}"
+}
+
+fail() {
+  echo -e "\e[31mFail:\e[m $*"
+  exit 1
+}
+
+install_mlton() {
+  local install_type=$1
+  local version=$2
+  local install_path=$3
+
+  if [ "$install_type" != "version" ]; then
+    fail "asdf-mlton supports release installs only"
+  fi
+
+  local platform
+
+  case "$OSTYPE" in
+    darwin*)
+      if [[ $version -ge 20200817 ]]; then
+        platform="darwin-19.6.gmp-static"
+      else
+        platform="darwin.gmp-static"
+      fi
+      ;;
+    linux*)
+      if [[ $version -ge 20210107 ]]; then
+        platform="linux-glibc2.31"
+      else
+        platform="linux"
+      fi
+      ;;
+    *) fail "Unsupported platform" ;;
+  esac
+
+  local architecture
+
+  case "$(uname -m)" in
+    x86_64) architecture="amd64" ;;
+    *) fail "Unsupported architecture" ;;
+  esac
+
+  local download_url="https://github.com/MLton/mlton/releases/download/on-${version}-release/mlton-${version}-1.${architecture}-${platform}.tgz"
+  local source_path="${install_path}/bin/mlton.tgz"
+
+  echo "∗ Downloading and installing mlton..."
+  mkdir -p "${install_path}/bin"
+  curl --fail --silent --location --create-dirs --output "$source_path" "$download_url"
+  tar -zxf "$source_path" -C "$install_path" --strip-components=1
+  echo "The installation was successful!"
+}
+
+install_mlton "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
