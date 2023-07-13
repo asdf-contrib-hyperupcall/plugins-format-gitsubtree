@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+: "${ASDF_INSTALL_VERSION:?"Missing ASDF_INSTALL_VERSION"}"
+: "${ASDF_INSTALL_PATH:?"Missing ASDF_INSTALL_PATH"}"
+
+install_tool() {
+  local version=$1
+  local install_path=$2
+  local bin_install_path="${install_path}/bin"
+  local binary_name="semtag"
+  local platform=""
+  local arch=""
+  local tempdir=""
+  local tempfile=""
+  local filename=""
+  local download_url=""
+
+  [ "Linux" = "$(uname)" ] && platform="linux" || platform="osx"
+  [ "x86_64" = "$(uname -m)" ] && arch="x86_64" || arch="i686"
+  echo "platform: $platform, arch: $arch"
+
+  [ "linux" = "${platform}" ] && tempdir=$(mktemp -d asdf-semtag.XXXX) || tempdir=$(mktemp -dt asdf-semtag.XXXX)
+
+  filename="v${version}.tar.gz"
+  tempfile="${tempdir}/${filename}"
+  download_url="https://github.com/nico2sh/semtag/archive/refs/tags/${filename}"
+
+  echo "download_url $download_url"
+  echo "ASDF_INSTALL_PATH $ASDF_INSTALL_PATH"
+
+  curl -L "${download_url}" -o "${tempfile}"
+  tar zxf "${tempfile}" -C "$install_path" --strip-components=1 || exit 1
+
+  echo "Creating bin install directory"
+  mkdir -p "$bin_install_path"
+  cp "${install_path}/${binary_name}" "${bin_install_path}/${binary_name}"
+  chmod +x "${bin_install_path}/${binary_name}"
+
+  rm -rf "${tempdir}"
+}
+
+install_tool "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
