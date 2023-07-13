@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -e
+
+# check ASDF environment variables
+[ -n "$ASDF_INSTALL_VERSION" ] || (echo 'Missing ASDF_INSTALL_VERSION' >&2 && exit 1)
+[ -n "$ASDF_DOWNLOAD_PATH" ] || (echo 'Missing ASDF_DOWNLOAD_PATH' >&2 && exit 1)
+
+case "$(uname -s)" in
+  "Darwin")
+    case "$(uname -m)" in
+      "arm64")
+        DOWNLOAD_URL="https://github.com/soracom/soracom-cli/releases/download/v${ASDF_INSTALL_VERSION}/soracom_${ASDF_INSTALL_VERSION}_darwin_arm64.zip"
+				curl -fL -o "${ASDF_DOWNLOAD_PATH}/soracom.zip" "${DOWNLOAD_URL}"
+        ;;
+      "x86_64")
+        DOWNLOAD_URL="https://github.com/soracom/soracom-cli/releases/download/v${ASDF_INSTALL_VERSION}/soracom_${ASDF_INSTALL_VERSION}_darwin_amd64.zip"
+				curl -fL -o "${ASDF_DOWNLOAD_PATH}/soracom.zip" "${DOWNLOAD_URL}"
+        ;;
+    esac
+    ;;
+  "Linux")
+    case "$(uname -m)" in
+      "arm64")
+        DOWNLOAD_URL="https://github.com/soracom/soracom-cli/releases/download/v${ASDF_INSTALL_VERSION}/soracom_${ASDF_INSTALL_VERSION}_linux_arm64.tar.gz"
+				curl -fL -o "${ASDF_DOWNLOAD_PATH}/soracom.tar.gz" "${DOWNLOAD_URL}"
+        ;;
+      "x86_64")
+        DOWNLOAD_URL="https://github.com/soracom/soracom-cli/releases/download/v${ASDF_INSTALL_VERSION}/soracom_${ASDF_INSTALL_VERSION}_linux_amd64.tar.gz"
+				curl -fL -o "${ASDF_DOWNLOAD_PATH}/soracom.tar.gz" "${DOWNLOAD_URL}"
+        ;;
+    esac
+    ;;
+esac
