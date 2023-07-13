@@ -1,0 +1,10 @@
+#!/bin/sh 
+
+export LC_ALL=C
+export GRADLE_DISTRIBUTION_URL=${GRADLE_DISTRIBUTION_URL:=https://services.gradle.org/distributions}
+
+curl -s ${GRADLE_DISTRIBUTION_URL}/ |
+  grep -e "gradle.*-bin.zip\"" |
+  sed -e "s#^.*gradle-##" -e "s#-bin.zip.*##" |
+  sort -t. -n |
+  paste -s -d" " -
