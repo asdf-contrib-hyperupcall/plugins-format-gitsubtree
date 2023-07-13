@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC2155
+
+set -Eeuo pipefail
+
+binary_name="swagger"
+first_version_darwin_arm64="0.29.0"
+first_version_v="0.17.0"
+
+install() {
+  local version=$2
+  local version_download=$version
+  lowest=$(printf '%s\n' "$first_version_v" "$version" | sort -V | head -n 1)
+  if [[ "$lowest" == "$first_version_v" ]]; then
+    version_download="v${version}"
+  fi
+  local install_path=$3
+  platform="$(uname -s | tr '[:upper:]' '[:lower:]')"
+  readonly platform
+  arch="$(uname -m)"
+  if [ "$arch" == "x86_64" ]; then
+    arch="amd64"
+  fi
+  if [[ $platform == "darwin" ]]; then
+    echo "${first_version_darwin_arm64} and ${version}"
+    lowest=$(printf '%s\n' "$first_version_darwin_arm64" "$version" | sort -V | head -n 1)
+    if [[ "$lowest" != "$first_version_darwin_arm64" ]]; then
+      arch="amd64"
+    fi
+  fi
+  readonly arch
+  local filename="${binary_name}_${platform}_${arch}"
+
+  local bin_install_path="$install_path/bin"
+  local binary_path="$bin_install_path/swagger"
+  local download_url="https://github.com/go-swagger/go-swagger/releases/download/${version_download}/${filename}"
+
+  echo "Creating bin directory"
+  mkdir -p "${bin_install_path}"
+
+  echo "Downloading go-swagger from ${download_url} to ${binary_path}"
+  curl -L "${download_url}" -o "${binary_path}"
+  chmod +x "${binary_path}"
+}
+
+install "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
