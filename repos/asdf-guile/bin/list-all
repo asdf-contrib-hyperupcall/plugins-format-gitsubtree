@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+set -o nounset -o pipefail -o errexit
+
+source "$(dirname $0)/../lib/utils.sh"
+
+
+versions_index=$(base_url)
+echo "$(curl -Ls $versions_index | sed -n 's/.*href="guile-\([^"]*\).tar.xz.*/\1/p' | uniq | awk '{print}' ORS=' ')"
