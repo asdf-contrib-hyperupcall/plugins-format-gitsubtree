@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: secondary
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches-ignore: [trunk]
+
+jobs:
+  secondary:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ------------------------------------------------------------------------
+
+      - uses: actions/checkout@v3
+
+      - uses: asdf-vm/actions/install@v1
+
+      # ------------------------------------------------------------------------
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.x
+
+      - name: Setup pre-commit
+        run: |
+          pip install pre-commit
+          pre-commit install
+
+      - name: Cache pre-commit
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pre-commit
+          key: ${{ runner.os }}-pre-commit
+
+      - name: Run pre-commit
+        run: pre-commit run --all-files --verbose --show-diff-on-failure
+
+      # ------------------------------------------------------------------------
+
+      - name: Asdf plugin test
+        uses: asdf-vm/actions/plugin-test@v1
+        with:
+          command: gopass --help
+        env:
+          LOGSH_COLOR: 'true'
+          LOGSH_LEVEL: '4'
+
+      # ------------------------------------------------------------------------
