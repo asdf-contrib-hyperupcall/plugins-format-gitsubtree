@@ -1,0 +1,24 @@
+name: Build
+on:
+  pull_request:
+    paths-ignore:
+      - "**.md"
+  push:
+    paths-ignore:
+      - "**.md"
+
+jobs:
+  plugin_test:
+    name: asdf plugin test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - run: git clone https://github.com/asdf-vm/asdf.git
+      - run: . asdf/asdf.sh && asdf plugin add krab https://github.com/ohkrab/asdf-krab.git
+      - run: . asdf/asdf.sh && asdf install krab 0.2.3
+      - run: . asdf/asdf.sh && asdf global krab 0.2.3
+
+      - name: test
+        run: . asdf/asdf.sh && krab --version
