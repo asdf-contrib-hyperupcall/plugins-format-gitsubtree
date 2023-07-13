@@ -1,0 +1,11 @@
+stages:
+  - test
+
+test:
+  stage: test
+  image: golang:1.15-buster
+  script: |
+    apt-get update && apt-get install -y jq
+    git clone https://github.com/asdf-vm/asdf.git ~/.asdf
+    source ~/.asdf/asdf.sh
+    asdf plugin test go-jsonnet https://gitlab.com/craigfurman/asdf-go-jsonnet.git

@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${ASDF_INSTALL_TYPE}" != "version" ]; then
+  echo "ASDF_INSTALL_TYPE '${ASDF_INSTALL_TYPE}' not supported"
+fi
+
+if [ -z "${ASDF_DOWNLOAD_PATH:-}" ]; then
+  # Despite the docs (https://asdf-vm.com/#/plugins-create), the latest asdf
+  # (v0.7.8) does not appear to call the download script or set
+  # ASDF_DOWNLOAD_PATH. It looks like these docs are generated from master and
+  # not the latest tag
+  # (https://github.com/asdf-vm/asdf/blob/v0.7.8/docs/plugins-create.md).
+  #
+  # I've tested this plugin against asdf master, and it appears to work.
+  # Hopefully this plugin will work seamlessly when a tagged asdf version calls
+  # the download script.
+
+  ASDF_DOWNLOAD_PATH=$(mktemp -d -t asdf-go-jsonnet-XXXXXX)
+  export ASDF_DOWNLOAD_PATH
+  trap 'rm -rf ${ASDF_DOWNLOAD_PATH}' EXIT
+
+  "$(dirname "$0")/download"
+fi
+
+tar -xf "${ASDF_DOWNLOAD_PATH}/go-jsonnet-v${ASDF_INSTALL_VERSION}.tar.gz" \
+  -C "${ASDF_DOWNLOAD_PATH}"
+
+bin_path="${ASDF_INSTALL_PATH}/bin"
+mkdir -p "${bin_path}"
+
+(
+  cd "${ASDF_DOWNLOAD_PATH}"
+  cd google-go-jsonnet-*
+  go build ./cmd/jsonnet
+  mv jsonnet "${bin_path}/"
+
+  if [ -d ./cmd/jsonnetfmt ]; then
+    go build ./cmd/jsonnetfmt
+    mv jsonnetfmt "${bin_path}/"
+  fi
+  if [ -d ./cmd/jsonnet-lint ]; then
+    go build ./cmd/jsonnet-lint
+    mv jsonnet-lint "${bin_path}/"
+  fi
+  if [ -d ./cmd/jsonnet-deps ]; then
+    go build ./cmd/jsonnet-deps
+    mv jsonnet-deps "${bin_path}/"
+  fi
+)
