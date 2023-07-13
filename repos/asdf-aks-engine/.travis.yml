@@ -1,0 +1,9 @@
+language: bash
+script: asdf plugin-test aks-engine https://github.com/robsonpeixoto/asdf-aks-engine.git 'aks-engine version'
+before_script:
+  - git clone https://github.com/asdf-vm/asdf.git
+  - . asdf/asdf.sh
+  - asdf update
+os:
+  - linux
+  - osx
