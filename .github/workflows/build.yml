@@ -1,0 +1,33 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  plugin_test:
+    name: asdf plugin test
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-22.04
+          - macos-12
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Install dependencies
+        if: startsWith(matrix.os, 'ubuntu-')
+        run: |
+          sudo apt-get update && sudo apt-get install -y nasm
+      - name: Install dependencies
+        if: startsWith(matrix.os, 'macos-')
+        run: |
+          brew install nasm
+      - name: asdf_plugin_test
+        uses: asdf-vm/actions/plugin-test@dd88cacda735aadf625b889cbed3cd5923437af7 # 2022-12-13
+        env:
+          ASDF_CONCURRENCY: 4
+        with:
+          command: ffmpeg -version
