@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+set \
+  -o nounset \
+  -o pipefail \
+  -o errexit
+
+mkdir -p "${ASDF_INSTALL_PATH}/bin"
+
+os=$(uname | tr '[:upper:]' '[:lower:]')
+
+curl -fSL -o "${ASDF_INSTALL_PATH}/bin/dasel" \
+  "https://github.com/TomWright/dasel/releases/download/v${ASDF_INSTALL_VERSION}/dasel_${os}_amd64"
+
+chmod +x "${ASDF_INSTALL_PATH}/bin/dasel"
