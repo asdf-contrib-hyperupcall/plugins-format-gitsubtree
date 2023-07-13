@@ -1,0 +1,10 @@
+name: Lint
+
+on:
+  push:
+    branches:
+  pull_request:
+
+jobs:
+  shell:
+    uses: carlduevel/asdf-plugin-build-harness/.github/workflows/lint.yml@master
