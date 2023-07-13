@@ -1,0 +1,16 @@
+language: c
+env:
+  - GOSS_NAME=goss GOSS_VERSION=v0.3.6 TEST_COMMAND='goss --version'
+before_script:
+  - git clone https://github.com/asdf-vm/asdf.git
+  - . asdf/asdf.sh
+script:
+  - make test
+  - asdf plugin-add $GOSS_NAME ./
+  - asdf list-all $GOSS_NAME
+  - asdf plugin-test $GOSS_NAME ./ "$TEST_COMMAND" --asdf-tool-version $GOSS_VERSION
+matrix:
+  include:
+   - os: linux
+     arch: amd64
+   - os: osx
