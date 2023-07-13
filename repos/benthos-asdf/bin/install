@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+BENTHOS_INSTALL_URL="https://sh.benthos.dev"
+ASDF_INSTALL_PATH_BIN="${ASDF_INSTALL_PATH}/bin"
+
+mkdir -p "${ASDF_INSTALL_PATH_BIN}"
+
+curl -Lsf "${BENTHOS_INSTALL_URL}" | bash -s "${ASDF_INSTALL_VERSION}" "${ASDF_INSTALL_PATH_BIN}"
