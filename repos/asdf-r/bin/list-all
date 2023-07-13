@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+# Get versions (only fully numeric versions) for each major release
+versions=""
+for major_version in {2..4}; do
+  versions="${versions}
+$(curl -sL "https://cloud.r-project.org/src/base/R-${major_version}/" | grep -o '"R-[0-9]*.[0-9]*.[0-9]*.tar.gz"' | sed 's/"R-\(.*\).tar.gz"$/\1/')"
+done
+
+# Sort versions and remove any blank lines
+echo "$versions" | LC_ALL=C sort -t. -k 1,1 -k 2,2n -k 3,3n |  sed ':a; N; $!ba; s/\n/ /g'
+
