@@ -1,0 +1,40 @@
+language: c
+
+matrix:
+  include:
+    - os: linux
+      services:
+        - docker
+      script:
+        - |
+          bash -c "while true; do echo \$(date) - travis building ...; sleep 540; done" &
+          export PING_LOOP_PID=$!
+        - |
+          cat <<-EOF | docker run -i ocaml/opam:ubuntu-16.04_ocaml-4.05.0 bash -
+          set -e
+          opam install -y num ocamlfind camlp5
+          git clone https://github.com/asdf-vm/asdf.git
+          . asdf/asdf.sh
+          export ASDF_CONCURRENCY=4
+          asdf plugin-test coq https://github.com/gingerhot/asdf-coq.git 'coqc -v'
+          EOF
+      after_script:
+        - kill -9 $PING_LOOP_PID
+
+    - os: osx
+      before_script:
+        - git clone https://github.com/asdf-vm/asdf.git
+        - . asdf/asdf.sh
+        - brew install ocaml
+        - brew install opam
+        - opam init -y
+        - eval `opam config env`
+        - opam install -y num ocamlfind camlp5
+      script:
+        - |
+          bash -c "while true; do echo \$(date) - travis building ...; sleep 540; done" &
+          export PING_LOOP_PID=$!
+        - export ASDF_CONCURRENCY=4
+        - asdf plugin-test coq https://github.com/gingerhot/asdf-coq.git 'coqc -v'
+      after_script:
+        - kill -9 $PING_LOOP_PID
