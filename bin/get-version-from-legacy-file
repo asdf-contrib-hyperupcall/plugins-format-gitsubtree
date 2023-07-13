@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+# lifted shamelessly from the hashicorp-tools plugin pretty much a
+# copy/paste with changed strings variable names.
+# See https://github.com/Banno/asdf-hashicorp for the original source
+get_legacy_version() {
+    local -r current_directory="$1"
+    local -r tg_version_file="${current_directory}/.terragrunt-version"
+
+    # Get version from .terragrunt-version file (used by tgenv)
+    if [[ -r ${tg_version_file} ]]; then
+        cat "${tg_version_file}"
+    fi
+}
+
+get_legacy_version "$1"
