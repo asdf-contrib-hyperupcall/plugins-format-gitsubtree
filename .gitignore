@@ -1,0 +1,7 @@
+/.vscode
+testnimble*
+/node_modules
+/.tool-versions
+package-lock.json
+/.tmp
+/nimbledeps
