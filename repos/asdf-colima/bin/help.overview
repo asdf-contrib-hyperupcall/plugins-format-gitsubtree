@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+echo 'Basic usage:
+
+    asdf install colima latest
+    asdf global colima latest
+    colima start
+
+Check the README for required system dependencies before installing Colima.
+'
