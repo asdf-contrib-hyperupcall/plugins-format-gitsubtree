@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# goconvey does not make binary releases. The install script runs `go install`
+# to retrieve the tool's source, build it, and install it; there is no discrete
+# “download” step.
