@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+current_script_path=${BASH_SOURCE[0]}
+plugin_dir=$(dirname "$(dirname "$current_script_path")")
+
+# shellcheck source=../lib/utils.bash
+source "${plugin_dir}/lib/utils.bash"
+
+mkdir -p "$ASDF_DOWNLOAD_PATH"
+
+release_file="$ASDF_DOWNLOAD_PATH/$TOOL_NAME-$ASDF_INSTALL_VERSION.tar.gz"
+
+# Download tar.gz file to the download directory
+get_arch() {
+  local arch
+  arch=$(uname -m | tr '[:upper:]' '[:lower:]')
+  case ${arch} in
+  arm64)
+    # If this is Apple silicon, then use the x86_64 architecture
+    if [[ "$(uname | tr '[:upper:]' '[:lower:]')" == 'darwin' ]]; then
+      arch='x86_64'
+    else
+      arch='x86_64' # arm
+    fi
+    ;;
+  armv7l)
+    arch='x86_64' # arm
+    ;;
+  esac
+
+  echo "${arch}"
+}
+
+get_platform() {
+  local plat
+  plat=$(uname | tr '[:upper:]' '[:lower:]')
+  case ${plat} in
+  darwin)
+    plat='apple'
+    ;;
+  linux)
+    plat='unknown-linux'
+    ;;
+  windows)
+    plat='pc-windows'
+    ;;
+  esac
+
+  echo "${plat}"
+}
+
+get_toolchain() {
+  local tchain
+  tchain=$(uname | tr '[:upper:]' '[:lower:]')
+  case ${tchain} in
+  darwin) ;;
+
+  linux)
+    tchain='gnu'
+    ;;
+  windows)
+    tchain='msvc'
+    ;;
+  esac
+
+  echo "${tchain}"
+}
+
+get_platform_pre_v1() {
+  local plat
+  plat=$(uname | tr '[:upper:]' '[:lower:]')
+  case ${plat} in
+  darwin)
+    plat='macos'
+    ;;
+  linux)
+    if [[ "$(get_arch)" == 'arm' ]]; then
+      plat='linux'
+    else
+      plat='linux'
+    fi
+    ;;
+  windows)
+    plat='windows'
+    ;;
+  esac
+
+  echo "${plat}"
+}
+
+arch="$(get_arch)"
+
+if [[ "$ASDF_INSTALL_VERSION" == 0.* ]]; then
+  platform="$(get_platform_pre_v1)"
+  download_release "$ASDF_INSTALL_VERSION" "$release_file" "$arch" "$platform" ""
+else
+  platform="$(get_platform)"
+  toolchain="$(get_toolchain)"
+  download_release "$ASDF_INSTALL_VERSION" "$release_file" "$arch" "$platform" "$toolchain"
+fi
+
+#  Extract contents of tar.gz file into the download directory
+tar -xzf "$release_file" -C "$ASDF_DOWNLOAD_PATH" --strip-components=1 || fail "Could not extract $release_file"
+
+# Remove the tar.gz file since we don't need to keep it
+rm "$release_file"
