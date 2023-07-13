@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+set -e
+
+install_trdsql() {
+    # shellcheck disable=SC2034
+    local install_type=$1
+    local install_version=$2
+    local install_path=$3
+
+    case "$(uname -s)" in
+      Darwin) platform="darwin" ;;
+      Linux) platform="linux" ;;
+      *) fail "Unsupported platform" ;;
+    esac
+
+    case "$(uname -m)" in
+      i?86) architecture="386" ;;
+      x86_64) architecture="amd64" ;;
+      arm64|aarch64|armv8l) architecture="arm64" ;;
+      armv7l) architecture="arm7" ;;
+      mips) architecture="mips" ;;
+      mipsel) architecture="mipsle" ;;
+      *) fail "Unsupported architecture" ;;
+    esac
+
+    if [[ $( echo "$install_version" | cut -d"." -f 1) -lt 1 && $( echo "$install_version" | cut -d"." -f 2) -lt 7 ]]; then
+      download="https://github.com/noborus/trdsql/releases/download/v${install_version}/trdsql_${platform}_${architecture}.zip"
+    else
+      download="https://github.com/noborus/trdsql/releases/download/v${install_version}/trdsql_v${install_version}_${platform}_${architecture}.zip"
+    fi
+    filename="${install_path}/tmp/trdsql.zip"
+
+    if [ ! -d "${install_path}/bin" ]; then
+        mkdir -p "${install_path}/tmp"
+    fi
+
+    if [ ! -d "${install_path}/bin" ]; then
+        mkdir -p "${install_path}/bin"
+    fi
+
+    curl -fL# -o "${filename}" "${download}"
+    unzip -j "${filename}" -d "${install_path}/bin"
+    chmod +x "${install_path}/bin/trdsql"
+}
+
+install_trdsql "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
+
