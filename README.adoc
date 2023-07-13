@@ -1,0 +1,9 @@
+= asdf-crossplane-cli
+
+https://github.com/crossplane/crossplane-cli[crossplane-cli] plugin for https://github.com/asdf-vm/asdf[asdf] version manager
+
+== Install
+
+```
+asdf plugin-add crossplane-cli https://github.com/joke/asdf-crossplance-cli.git
+```
