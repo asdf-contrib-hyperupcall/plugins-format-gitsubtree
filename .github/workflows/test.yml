@@ -1,0 +1,20 @@
+name: build
+on:
+  push:
+  pull_request:
+
+jobs:
+  plugin_test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+        ver: [0.15.0, 0.25.0, 0.29.0]
+    steps:
+      - name: asdf_plugin_test
+        uses: asdf-vm/actions/plugin-test@v1
+        with:
+          version: ${{ matrix.ver }}
+          command: swagger version
+        env:
+          GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
