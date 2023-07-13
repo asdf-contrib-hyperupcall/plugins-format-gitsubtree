@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+fail() {
+  echo -e "\e[31mFail:\e[m $*"
+  exit 1
+}
+
+get_arch() {
+  local arch=""
+
+  case "$(uname -m)" in
+    x86_64 | amd64) arch='amd64\|x86_64' ;;
+    aarch64 | arm64) arch="arm64" ;;
+    *)
+      fail "Arch '$(uname -m)' not supported!"
+      ;;
+  esac
+
+  echo -n $arch
+}
+
+get_platform() {
+  local platform=""
+
+  case "$(uname | tr '[:upper:]' '[:lower:]')" in
+    darwin) platform="darwin" ;;
+    linux) platform="linux" ;;
+    windows) platform="windows" ;;
+    *)
+      fail "Platform '$(uname -m)' not supported!"
+      ;;
+  esac
+
+  echo -n $platform
+}
+
+install_cue() {
+  local install_type=$1
+  local version=$2
+  local install_path=$3
+
+  if [ "$install_type" != "version" ]; then
+    fail "asdf-cue supports release installs only"
+  fi
+
+  local download_url
+  platform=$(get_platform)
+  arch=$(get_arch)
+  ext=".tar.gz"
+  if [ "$platform" == "windows" ]; then
+    ext=".zip"
+  fi
+
+  local source_path="${install_path}/bin/cue${ext}"
+  local distination="${install_path}/bin"
+
+  (
+    echo "∗ Downloading and installing cue $version..."
+    mkdir -p "$distination"
+    download_file=$(curl -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/cue-lang/cue/releases/tags/v${version}" | grep "name" | grep "cue_v${version}\|cue_${version}" | awk '{print $2}' | grep -i "$platform" | grep -i "$arch" | sed -e 's/\"//g' | sed -e 's/,//g')
+    echo "$download_file"
+    download_url="https://github.com/cue-lang/cue/releases/download/v${version}/$download_file"
+    curl -L "$download_url" >"$source_path" || fail "Could not download $download_url"
+    case $platform in
+      windows)
+        unzip "$source_path" -d "$distination" || fail "Could not uncompress"
+        ;;
+      *)
+        tar zxvf "$source_path" -C "$distination" >/dev/null || fail "Could not uncompress"
+        ;;
+    esac
+
+    rm "$source_path"
+    echo "The cue $version installation was successful!"
+  ) || (
+    rm -rf "$install_path"
+    fail "An error occurred"
+  )
+}
+
+install_cue "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
