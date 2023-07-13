@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+fail() {
+  echo -e "\e[31mFail:\e[m $*"
+  exit 1
+}
+
+install_meson() {
+  local install_type=$1
+  local version=$2
+  local install_path=$3
+
+  if [ "$install_type" != "version" ]; then
+    fail "asdf-meson supports release installs only"
+  fi
+
+  local download_url="https://github.com/mesonbuild/meson/releases/download/${version}/meson-${version}.tar.gz"
+
+  local source_path="${install_path}/meson-${version}.tar.gz"
+
+  (
+    echo "∗ Downloading and installing meson..."
+    curl --silent --location --create-dirs --output "$source_path" "$download_url" || fail "Could not download meson $version"
+    tar zxf "$source_path" -C "$install_path" --strip-components=1 >/dev/null || fail "Could not uncompress"
+    mkdir -p "${install_path}/bin"
+    ln -s "${install_path}/meson.py" "${install_path}/bin/meson" || fail "Could not set symlink"
+    rm "$source_path" || fail "Could not remove tar file"
+    echo "The installation was successful!"
+  ) ||
+    (
+      rm -rf "$install_path"
+      fail "An error occurred"
+    )
+}
+
+install_meson "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
