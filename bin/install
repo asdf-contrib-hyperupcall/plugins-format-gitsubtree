@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+: "${ASDF_INSTALL_PATH:?"Missing ASDF_INSTALL_PATH"}"
+: "${ASDF_DOWNLOAD_PATH:?"Missing ASDF_DOWNLOAD_PATH"}"
+: "${ASDF_INSTALL_TYPE:?"asdf-mongosh supports release installs only"}"
+: "${ASDF_INSTALL_VERSION:?"Missing ASDF_INSTALL_VERSION"}"
+
+# shellcheck source=SCRIPTDIR/lib
+source "$(dirname "$0")/lib"
+
+install() {
+  if [ ! -d "$ASDF_DOWNLOAD_PATH" ]; then
+    # shellcheck source=SCRIPTDIR/download
+    source "$(dirname "$0")/download" || (
+      echo "Downloading mongosh $ASDF_INSTALL_VERSION failed" 1>&2
+      exit 1
+    )
+  fi
+
+  # Workaround for change in mongosh release packaging, see:
+  # https://github.com/mongodb-js/mongosh/pull/955
+  if [ ! -d "$ASDF_DOWNLOAD_PATH/bin" ]; then
+    mv "$ASDF_DOWNLOAD_PATH/mongosh-$(get_release_version)-$(get_release_os)-$(get_release_arch)/bin" "$ASDF_DOWNLOAD_PATH"
+    find "$ASDF_DOWNLOAD_PATH/mongosh-$(get_release_version)-$(get_release_os)-$(get_release_arch)" -delete
+  fi
+
+  mv "$ASDF_DOWNLOAD_PATH/bin" "$ASDF_INSTALL_PATH" &&
+    chmod -R +x "$ASDF_INSTALL_PATH/bin" &&
+    find "$ASDF_DOWNLOAD_PATH" -delete
+
+  if [ -x "$ASDF_INSTALL_PATH/bin/mongosh" ]; then
+    echo "mongosh $ASDF_INSTALL_VERSION has been installed"
+    exit 0
+  else
+    echo "An error ocurred while installing mongosh $ASDF_INSTALL_VERSION" 1>&2
+    find "$ASDF_INSTALL_PATH" -delete
+    exit 1
+  fi
+}
+
+install

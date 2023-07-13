@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+
+get_github_org() {
+  echo "mongodb-js"
+}
+
+get_github_repo() {
+  echo "mongosh"
+}
+
+get_github_auth_header() {
+  # shellcheck disable=SC2154
+  if [ -n "$GITHUB_API_TOKEN" ]; then
+    echo "Authorization: token $GITHUB_API_TOKEN"
+  else
+    echo "AuthorizeMy: butt"
+  fi
+}
+
+get_release_os() {
+  uname -s | tr '[:upper:]' '[:lower:]'
+}
+
+get_release_arch() {
+  case "$(uname -m)" in
+    "x86_64")
+      echo "x64"
+      ;;
+    "arm64")
+      echo "arm64"
+      ;;
+    *)
+      "Unknown machine hardware" 1>&2 && exit 1
+      ;;
+  esac
+}
+
+get_release_version() {
+  # shellcheck disable=SC2154
+  echo "$ASDF_INSTALL_VERSION"
+}
+
+get_release_ext() {
+  case "$(get_release_os)" in
+    "darwin")
+      echo "zip"
+      ;;
+    "linux")
+      echo "tgz"
+      ;;
+  esac
+}
+
+get_download_url() {
+  echo "https://github.com/mongodb-js/mongosh/releases/download/v$(get_release_version)/mongosh-$(get_release_version)-$(get_release_os)-$(get_release_arch).$(get_release_ext)"
+}
+
+# stolen from https://github.com/rbenv/ruby-build/pull/631/files#diff-fdcfb8a18714b33b07529b7d02b54f1dR942
+sort_versions() {
+  sed 'h; s/[+-]/./g; s/.p\([[:digit:]]\)/.z\1/; s/$/.z/; G; s/\n/ /' |
+    LC_ALL=C sort -t. -k 1,1 -k 2,2n -k 3,3n -k 4,4n -k 5,5n | awk '{print $2}'
+}
