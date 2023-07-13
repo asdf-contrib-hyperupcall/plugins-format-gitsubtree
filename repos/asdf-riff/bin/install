@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+set -e
+set -o pipefail
+
+ASDF_INSTALL_TYPE=${ASDF_INSTALL_TYPE:-version  }
+TMPDIR=${TMPDIR:-/tmp}
+[ -n "$ASDF_INSTALL_VERSION" ] || (>&2 echo 'Missing ASDF_INSTALL_VERSION' && exit 1)
+[ -n "$ASDF_INSTALL_PATH" ] || (>&2 echo 'Missing ASDF_INSTALL_PATH' && exit 1)
+
+install_riff() {
+  local install_type=$1
+  local version=$2
+  local install_path=$3
+  local bin_install_path="$install_path/bin"
+  local download_url="$(get_download_url $version)"
+
+  mkdir -p "${bin_install_path}"
+
+  echo "Downloading riff from ${download_url} to ${bin_install_path}"
+  curl -s -L "$download_url"  | tar xz -C ${bin_install_path}
+  chmod +x $bin_install_path
+}
+
+get_arch() {
+  uname | tr '[:upper:]' '[:lower:]'
+}
+
+get_download_url() {
+  local version="$1"
+  local platform="$(get_arch)"
+  echo "https://github.com/projectriff/riff/releases/download/v${version}/riff-${platform}-amd64.tgz"
+}
+
+install_riff $ASDF_INSTALL_TYPE $ASDF_INSTALL_VERSION $ASDF_INSTALL_PATH
