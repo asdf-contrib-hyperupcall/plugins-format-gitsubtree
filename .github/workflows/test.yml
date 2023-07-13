@@ -1,0 +1,26 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  asdf:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install asdf dependencies
+        uses: asdf-vm/actions/install@v2
+
+      - name: Run plugin test
+        run: asdf plugin test envcli .
+
+      - name: Run plugin add
+        run: asdf plugin add envcli https://github.com/zekker6/asdf-envcli.git
+
+      - name: Run install
+        run: asdf install envcli latest
