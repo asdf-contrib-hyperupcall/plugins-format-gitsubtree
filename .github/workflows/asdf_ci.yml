@@ -1,0 +1,59 @@
+name: ASDF CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  plugin-test:
+    strategy:
+      matrix:
+        os:
+          - ubuntu-18.04 # ubuntu-earliest
+          - ubuntu-latest
+          - macos-10.15 # macos-earliest
+          - macos-latest
+        version: # all major versions
+          # Lowest version that supports the version argument,
+          # also tests the older download method
+          - "1.0.0"
+          - "latest:1"
+          - "latest"
+        exclude:
+          # v1.2.0 adds support for macos
+          - os: macos-10.15
+            version: "1.0.0"
+          - os: macos-latest
+            version: "1.0.0"
+    runs-on: ${{ matrix.os }}
+    steps:
+      # Configures the node version used on GitHub-hosted runners
+      - uses: actions/setup-node@v1
+        with:
+          # The Node.js version to configure
+          node-version: ${{ matrix.node }}
+      - name: Test plugin
+        uses: asdf-vm/actions/plugin-test@v1
+        with:
+          command: container-structure-test version
+          version: ${{ matrix.version }}
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Run ShellCheck
+        run: shellcheck bin/*
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install prettier and sh plugin
+        run: npm install -g prettier prettier-plugin-sh
+      - name: Run prettier
+        run: prettier --check .
+      - name: Run prettier on bin
+        run: prettier --check --parser sh 'bin/**'
