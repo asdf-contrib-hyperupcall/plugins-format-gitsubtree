@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+set -e
+set -o pipefail
+
+ASDF_INSTALL_TYPE=${ASDF_INSTALL_TYPE:-version  }
+TMPDIR=${TMPDIR:-/tmp}
+[ -n "$ASDF_INSTALL_VERSION" ] || (>&2 echo 'Missing ASDF_INSTALL_VERSION' && exit 1)
+[ -n "$ASDF_INSTALL_PATH" ] || (>&2 echo 'Missing ASDF_INSTALL_PATH' && exit 1)
+
+install_draft() {
+  local install_type=$1
+  local version=$2
+  local install_path=$3
+  local platform="$(get_arch)"
+  local bin_install_path="$install_path/bin"
+  local download_url="$(get_download_url $version $platform)"
+  local archive_install_path="$TMPDIR/draft"
+
+  mkdir -p "${bin_install_path}"
+  mkdir -p "${archive_install_path}"
+
+  local archive_path="$archive_install_path/draft.tar.gz"
+  local bin_path="${bin_install_path}/draft"
+  echo "Downloading draft from ${download_url}"
+  curl -sSL "$download_url" -o "$archive_path"
+  echo "Extracting draft from ${archive_path}"
+  tar -xvzf "$archive_path" -C "$archive_install_path"
+  echo "Moving draft to ${bin_path}"
+  mv "$archive_install_path/$platform-amd64/draft" "$bin_path"
+  chmod +x $bin_path
+}
+
+get_arch() {
+  uname | tr '[:upper:]' '[:lower:]'
+}
+
+get_download_url() {
+  local version="$1"
+  local platform="$2"
+
+  echo "https://azuredraft.blob.core.windows.net/draft/draft-v${version}-${platform}-amd64.tar.gz"
+}
+
+install_draft $ASDF_INSTALL_TYPE $ASDF_INSTALL_VERSION $ASDF_INSTALL_PATH
