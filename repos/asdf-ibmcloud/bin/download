@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+current_script_path=${BASH_SOURCE[0]}
+plugin_dir=$(dirname "$(dirname "$current_script_path")")
+
+# shellcheck source=../lib/utils.bash
+source "${plugin_dir}/lib/utils.bash"
+
+if [ "$ASDF_INSTALL_TYPE" != "version" ]; then
+  fail "asdf-$TOOL_NAME supports release installs only"
+fi
+
+mkdir -p "$ASDF_DOWNLOAD_PATH"
+pushd "$ASDF_DOWNLOAD_PATH"
+
+msg "* Downloading $TOOL_NAME release $ASDF_INSTALL_VERSION..."
+curl -fsSL -O -C - "$(release_url)" || fail "Could not download $(release_url)"
+
+platform="$(get_platform "$@")"
+
+#  Extract contents of tar.gz file into the download directory
+if [[ $platform == "darwin" ]]; then
+  pkgutil --expand "$(release_file)" pkg
+  pushd pkg
+  gunzip -dc <Command_Line_Interface.pkg/Payload | cpio -i
+  mv usr/local/ibmcloud/bin "${ASDF_DOWNLOAD_PATH}/"
+  mv usr/local/ibmcloud/autocomplete "${ASDF_DOWNLOAD_PATH}/"
+  popd
+  rm -rf ./pkg
+else
+  tar -xzf "$(release_file)" -C "$ASDF_DOWNLOAD_PATH" --strip-components=1 || fail "Could not extract $(release_file)"
+fi
+
+# Remove the tar.gz file since we don't need to keep it
+rm "${ASDF_DOWNLOAD_PATH}/$(release_file)"

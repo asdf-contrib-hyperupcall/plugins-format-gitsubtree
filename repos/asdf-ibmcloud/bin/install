@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+current_script_path=${BASH_SOURCE[0]}
+plugin_dir=$(dirname "$(dirname "$current_script_path")")
+
+# shellcheck source=../lib/utils.bash
+source "${plugin_dir}/lib/utils.bash"
+
+if [ "$ASDF_INSTALL_TYPE" != "version" ]; then
+  fail "asdf-$TOOL_NAME supports release installs only"
+fi
+
+(
+  mkdir -p "$ASDF_INSTALL_PATH"
+  cp -r "$ASDF_DOWNLOAD_PATH"/autocomplete "$ASDF_INSTALL_PATH"
+  cp -r "$ASDF_DOWNLOAD_PATH"/bin "$ASDF_INSTALL_PATH"
+
+  tool_cmd="$(echo "$TOOL_TEST" | cut -d' ' -f1)"
+  test -x "$ASDF_INSTALL_PATH/bin/$tool_cmd" || fail "Expected $ASDF_INSTALL_PATH/$tool_cmd to be executable."
+
+  echo "$TOOL_NAME $ASDF_INSTALL_VERSION installation was successful!"
+) || (
+  rm -rf "$ASDF_INSTALL_PATH"
+  fail "An error occurred while installing $TOOL_NAME $ASDF_INSTALL_VERSION."
+)
