@@ -1,0 +1,20 @@
+name: master
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: asdf_plugin_test
+        # Reference the major version of a release (most recommended)
+        uses: asdf-vm/actions/plugin-test@v1
+        with:
+          command: "argo -h"
+        env:
+          GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }} # automatically provided
