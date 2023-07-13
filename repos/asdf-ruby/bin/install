@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../lib/utils.sh"
+
+install_ruby() {
+  ensure_ruby_build_setup
+
+  local install_type="$1"
+  local version="$2"
+  local install_path="$3"
+
+  if [ "$install_type" != "version" ]; then
+    echoerr "Cannot install specific ref from source, sorry."
+    echoerr "For a list of available versions, see \`asdf list-all ruby\`"
+    exit 1
+  fi
+
+  local opts=""
+  local patches=""
+
+  if [[ -n "${RUBY_APPLY_PATCHES:-}" ]]; then
+    opts="$opts --patch"
+    patches=$(fetch_patches "$RUBY_APPLY_PATCHES")
+  fi
+
+  if [[ -n "${RUBY_BUILD_OPTS:-}" ]]; then
+    opts="$opts $RUBY_BUILD_OPTS"
+  fi
+
+  set +e
+  matching_version="$(is_version_valid "$version")"
+  set -e
+
+  if [[ -z "$matching_version" ]]; then
+    errorexit "Version not found\n\nIf this is a new Ruby version, you may need to update the plugin:\nasdf plugin update ruby"
+  fi
+
+  # shellcheck disable=SC2086
+  echo "$patches" | "$(ruby_build_path)" ${opts} "$version" "$install_path"
+}
+
+is_version_valid() {
+  version=$1
+  "$(ruby_build_path)" --definitions | grep -v "topaz-dev" | grep "$version" -
+}
+
+fetch_patches() {
+  while read -r line; do
+    if [ "$line" = "" ]; then continue; fi
+    if [[ "$line" =~ ^[Hh][Tt][Tt][Pp][Ss]?:// ]]; then
+      echo >&2 "Using patch from URL: $line"
+      curl -fSs "$line" || exit 1
+    else
+      local abs_path
+      abs_path="$(get_absolute_path "$line")"
+      echo >&2 "Using local patch: $abs_path"
+      cat "$abs_path" || exit 1
+    fi
+  done <<<"$@"
+}
+
+get_absolute_path() {
+  local start_dir
+  local rel_path
+  local rel_dir
+  local rel_base
+
+  start_dir="$(pwd)"
+  rel_path="$1"
+  rel_dir="$(dirname "$rel_path")"
+  rel_base="$(basename "$rel_path")"
+
+  (
+    cd "$start_dir" &&
+      cd "$rel_dir" 2>/dev/null &&
+      echo "$(pwd)/$rel_base" ||
+      echo "$rel_path"
+  )
+}
+
+install_default_gems() {
+  local args=()
+  local default_gems="${ASDF_GEM_DEFAULT_PACKAGES_FILE:=$HOME/.default-gems}"
+  local gem="${ASDF_INSTALL_PATH}/bin/gem"
+
+  if [ ! -f "$default_gems" ]; then
+    return
+  fi
+
+  echo ""
+
+  # Parsing of .default-gems was originally lifted from rbenv-default-gems
+  # which is Copyright (c) 2013 Sam Stephenson
+  # https://github.com/rbenv/rbenv-default-gems/blob/ead6788/LICENSE
+  while IFS=" " read -r -a line; do
+
+    # Skip empty lines.
+    [ "${#line[@]}" -gt 0 ] || continue
+
+    # Skip comment lines that begin with `#`.
+    [ "${line[0]:0:1}" != "#" ] || continue
+
+    gem_name="${line[0]}"
+    gem_version="${line[1]-}"
+
+    if [ "$gem_version" == "--pre" ]; then
+      args=(--pre)
+    elif [ -n "$gem_version" ]; then
+      args=(--version "$gem_version")
+    else
+      args=()
+    fi
+
+    # shellcheck disable=SC2145
+    echo -n "Running: gem install $gem_name ${args[@]:-} ... "
+
+    if output=$("$gem" install "$gem_name" "${args[@]+"${args[@]}"}" 2>&1); then
+      echo -e "SUCCESS"
+    else
+      echo -e "FAIL: $output"
+    fi
+  done <"$default_gems"
+}
+
+install_ruby "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
+install_default_gems
