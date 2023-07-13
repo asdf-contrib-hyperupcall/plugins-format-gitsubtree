@@ -1,0 +1,295 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  ASDF_ODO_VERBOSE: "true"
+
+jobs:
+  plugin_test:
+    name: test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install asdf
+        uses: asdf-vm/actions/setup@v2
+        with:
+          asdf_branch: v0.10.2
+
+      - name: Install plugin manually
+        run: |
+          mkdir -p ~/.asdf/plugins
+          ln -snf "$(pwd)" ~/.asdf/plugins/odo
+
+      - name: Set path to odo config file
+        run: |
+          mkdir -p "${HOME}/.config/odo"
+          cp "$(pwd)/.github/.odo_config.yaml" "${HOME}/.config/odo/config.yaml"
+          echo "GLOBALODOCONFIG=${HOME}/.config/odo/config.yaml" >> $GITHUB_ENV
+
+      - name: Install latest odo
+        run: |
+          asdf install odo latest
+          asdf global odo latest
+
+      - name: Test odo
+        run: odo version
+
+  plugin_list-all_test:
+    name: list-all
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install asdf
+        uses: asdf-vm/actions/setup@v2
+        with:
+          asdf_branch: v0.10.2
+
+      - name: Install plugin manually
+        run: |
+          mkdir -p ~/.asdf/plugins
+          ln -snf "$(pwd)" ~/.asdf/plugins/odo
+
+      - name: Check that list-all does not include a non-installable tag
+        run: |
+          ret=$(asdf list-all odo | grep -F "2.0.0-beta-1" || echo pass)
+          if [[ "$ret" != "pass" ]]; then
+            echo "ret: $ret"
+            echo "unexpected version found: 2.0.0-beta-1, which is not installable"
+            exit 1
+          fi
+
+  plugin_extension_settings_tests:
+    name: asdf odo settings
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install asdf
+        uses: asdf-vm/actions/setup@v2
+        with:
+          asdf_branch: v0.10.2
+
+      - name: Install plugin manually
+        run: |
+          mkdir -p ~/.asdf/plugins
+          ln -snf "$(pwd)" ~/.asdf/plugins/odo
+
+      - name: Install latest odo
+        run: |
+          asdf install odo latest
+          asdf global odo latest
+
+      - name: Check that 'asdf odo settings which' works correctly even if GLOBALODOCONFIG settings is not set
+        run: |
+          unset GLOBALODOCONFIG
+          ret=$(asdf odo settings which)
+          if [[ "$ret" != "${HOME}/.config/odo/settings.yaml" ]]; then
+            echo "ret: $ret"
+            echo "unexpected output for 'asdf odo settings which'. Expected: ${HOME}/.config/odo/settings.yaml"
+            exit 1
+          fi
+
+      - name: Check that 'asdf odo settings which' works correctly if GLOBALODOCONFIG settings is set by user
+        run: |
+          export GLOBALODOCONFIG=/tmp/config/odo_settings.yaml
+          ret=$(asdf odo settings which)
+          if [[ "$ret" != "${GLOBALODOCONFIG}" ]]; then
+            echo "ret: $ret"
+            echo "unexpected output for 'asdf odo settings which'. Expected: ${GLOBALODOCONFIG}"
+            exit 1
+          fi
+
+      - name: Check that 'asdf odo settings reset' does not exit if GLOBALODOCONFIG does not exist
+        run: |
+          export GLOBALODOCONFIG=/tmp/404/some.file
+          asdf odo settings reset || exit 1
+          if [ -f "${GLOBALODOCONFIG}" ]; then
+            echo "File should still be inexistent after running 'asdf odo settings reset': ${GLOBALODOCONFIG}"
+            exit 1
+          fi
+
+      - name: Check that 'asdf odo settings reset' works correctly if GLOBALODOCONFIG settings is set by user
+        run: |
+          export GLOBALODOCONFIG=/tmp/config/odo_settings.yaml
+          mkdir -p "$(dirname "${GLOBALODOCONFIG}")"
+          cp -vr ./.github/.odo_config.yaml "${GLOBALODOCONFIG}"
+          (yes || true) | asdf odo settings reset
+          if [ -f "${GLOBALODOCONFIG}" ]; then
+            echo "File should have been removed by 'asdf odo settings reset': ${GLOBALODOCONFIG}"
+            exit 1
+          fi
+
+      - name: Check that 'asdf odo settings reset' works correctly even if GLOBALODOCONFIG settings is not set
+        run: |
+          unset GLOBALODOCONFIG
+          mkdir -p "${HOME}/.config/odo/"
+          cp -vr ./.github/.odo_config.yaml "${HOME}/.config/odo/settings.yaml"
+          (yes || true) | asdf odo settings reset
+          if [ -f "${HOME}/.config/odo/settings.yaml" ]; then
+            echo "File should have been removed by 'asdf odo settings reset': ${HOME}/.config/odo/settings.yaml"
+            exit 1
+          fi
+
+  plugin_test_specific_version:
+    name: Test installing specific version
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        version: ["2.0.0", "2.5.1", "3.0.0-beta3", "3.0.0-rc1"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install asdf
+        uses: asdf-vm/actions/setup@v2
+        with:
+          asdf_branch: v0.10.2
+
+      - name: Install plugin manually
+        run: |
+          mkdir -p ~/.asdf/plugins
+          ln -sf "$(pwd)" ~/.asdf/plugins/odo
+
+      - name: Set path to odo config file
+        run: |
+          mkdir -p "${HOME}/.config/odo"
+          cp "$(pwd)/.github/.odo_config.yaml" "${HOME}/.config/odo/config.yaml"
+          echo "GLOBALODOCONFIG=${HOME}/.config/odo/config.yaml" >> $GITHUB_ENV
+
+      - name: Install odo v${{ matrix.version }}
+        run: |
+          asdf install odo ${{ matrix.version }}
+          asdf global odo ${{ matrix.version }}
+
+      - name: Test odo v${{ matrix.version }}
+        run: |
+          res=$(odo version | grep -F "v${{ matrix.version }}" || echo false)
+          if [[ "$res" == "false" ]]; then
+            version_output=$(odo version 2>&1 || true)
+            echo "Expected 'odo version' to contain \"v${{ matrix.version }}\", but got $version_output"
+            exit 1
+          fi
+
+  plugin_test_git_ref_upstream_repo:
+    name: Git refs from upstream repo
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        git_ref: [v2, 7618e8f3e4385bdca620e934c0b27d8fcc878099]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install asdf
+        uses: asdf-vm/actions/setup@v2
+        with:
+          asdf_branch: v0.10.2
+
+      - name: Install Golang (for installing odo from Git refs)
+        run: |
+          asdf plugin-add golang https://github.com/kennyp/asdf-golang.git
+          asdf install golang 1.17.13
+          asdf global golang 1.17.13
+
+      - name: Install plugin manually
+        run: |
+          mkdir -p ~/.asdf/plugins
+          ln -sf "$(pwd)" ~/.asdf/plugins/odo
+
+      - name: Set path to odo config file
+        run: |
+          mkdir -p "${HOME}/.config/odo"
+          cp "$(pwd)/.github/.odo_config.yaml" "${HOME}/.config/odo/config.yaml"
+          echo "GLOBALODOCONFIG=${HOME}/.config/odo/config.yaml" >> $GITHUB_ENV
+
+      - name: Install odo using Git ref (${{ matrix.git_ref }}) from upstream repo
+        env:
+          GIT_REF: ${{ matrix.git_ref }}
+        run: |
+          asdf install odo ref:$GIT_REF
+          asdf global odo ref:$GIT_REF
+
+      - name: Test odo using Git ref (${{ matrix.git_ref }}) from upstream repo
+        env:
+          GIT_REF: ${{ matrix.git_ref }}
+        run: |
+          res=$(odo version | grep -F "($GIT_REF)" || echo false)
+          if [[ "$res" == "false" ]]; then
+            version_output=$(odo version 2>&1 || true)
+            echo "Expected 'odo version' to contain \"($GIT_REF)\", but got $version_output"
+            exit 1
+          fi
+
+  plugin_test_git_ref_fork_repo:
+    name: Git refs from fork
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        git_ref: [docs-getting-started-order, 2c6c9f1a418c6620026a1d9908f268083a706e35]
+    runs-on: ${{ matrix.os }}
+    env:
+      ASDF_GITHUB_REPO_FOR_ODO: "https://github.com/rm3l/odo"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install asdf
+        uses: asdf-vm/actions/setup@v2
+        with:
+          asdf_branch: v0.10.2
+
+      - name: Install Golang (for installing odo from Git refs)
+        run: |
+          asdf plugin-add golang https://github.com/kennyp/asdf-golang.git
+          asdf install golang 1.17.13
+          asdf global golang 1.17.13
+
+      - name: Install plugin manually
+        run: |
+          mkdir -p ~/.asdf/plugins
+          ln -sf "$(pwd)" ~/.asdf/plugins/odo
+
+      - name: Set path to odo config file
+        run: |
+          mkdir -p "${HOME}/.config/odo"
+          cp "$(pwd)/.github/.odo_config.yaml" "${HOME}/.config/odo/config.yaml"
+          echo "GLOBALODOCONFIG=${HOME}/.config/odo/config.yaml" >> $GITHUB_ENV
+
+      - name: Download and install odo using Git ref (${{ matrix.git_ref }}) from fork repo
+        env:
+          GIT_REF: ${{ matrix.git_ref }}
+        run: |
+          asdf install odo ref:$GIT_REF
+          asdf global odo ref:$GIT_REF
+
+      - name: Test odo using Git ref (${{ matrix.git_ref }}) from fork repo
+        env:
+          GIT_REF: ${{ matrix.git_ref }}
+        run: |
+          res=$(odo version | grep -F "(${GIT_REF}@${ASDF_GITHUB_REPO_FOR_ODO})" || echo false)
+          if [[ "$res" == "false" ]]; then
+            version_output=$(odo version 2>&1 || true)
+            echo "Expected 'odo version' to contain \"(${GIT_REF}@${ASDF_GITHUB_REPO_FOR_ODO})\", but got $version_output"
+            exit 1
+          fi
