@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+if [[ -x "$(command -v python3)" ]]; then
+	python_cmd="python3"
+elif [[ -x "$(command -v python)" ]]; then
+	python_cmd="python"
+else
+	printf "🚨  %s\\n" "Python not found and is required for gcloud. Might I suggest https://github.com/danhper/asdf-python"
+	exit 1
+fi
+
+# credit: https://unix.stackexchange.com/a/56846/397902
+if [ -z "${CLOUDSDK_PYTHON:+1}" ]; then
+	# undefined or defined and empty
+	export CLOUDSDK_PYTHON="$python_cmd"
+fi
