@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+logtalk_versions=https://logtalk.org/files/versions.txt
+cmd="curl -s $logtalk_versions"
+
+versions=$(eval $cmd | tr '\n' ' ')
+
+echo $versions
