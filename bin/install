@@ -1,0 +1,165 @@
+#!/usr/bin/env bash
+set -eu
+[ "${BASH_VERSINFO[0]}" -ge 3 ] && set -o pipefail
+
+get_platform () {
+    local platform="$(uname | tr '[:upper:]' '[:lower:]')"
+
+    case "$platform" in
+        linux|freebsd)
+            echo "Platform '${platform}' supported!" >&2
+            # no need to change the platform variable
+            ;;
+        darwin)
+            echo "Platform '${platform}' supported!" >&2
+            # update platform to fit what is expected in url
+            local platform="macos"
+            ;;
+        *)
+            echo "Platform '${platform}' not supported!" >&2
+            ;;
+    esac
+
+    echo -n $platform
+}
+
+get_arch () {
+    local arch=""
+
+    case "$(uname -m)" in
+        x86_64|amd64) arch="x64"; ;;
+        arm64) arch="arm64"; ;;
+        i686|i386) arch="ia32"; ;;
+        *)
+            echo "Arch '$(uname -m)' not supported!" >&2
+            ;;
+    esac
+
+    echo -n $arch
+}
+
+my_mktemp () {
+    local tempdir=$(mktemp -d asdf-dart.XXXXXX)
+    echo -n $tempdir
+}
+
+validate_unzip () {
+    if ! command -v unzip &> /dev/null && ! command -v 7z &> /dev/null
+    then
+        echo "Missing zip decompresser. This plugin relies on either 7z or unzip."
+        exit 3
+    fi
+}
+
+install_dart () {
+    local install_type=$1
+    local version=$2
+    local install_path=$3
+    local platform=$(get_platform)
+    if [ "$platform"  == "" ]; then
+        exit 1
+    fi
+    local arch=$(get_arch)
+    if [ "$arch"  == "" ]; then
+        exit 2
+    fi
+
+    local tempdir=$(my_mktemp $platform)
+    local allow_extras=0
+    local major_version=$(echo $version | cut -d "." -f1)
+    # supported channels are "stable", "beta" and "dev"
+    local channel="stable"
+
+    echo "Version: $version"
+    echo "Install Path: $install_path"
+    echo "Platform: $platform"
+    echo "Architecture: $arch"
+    echo "Downloading to temp directory $tempdir"
+    echo "Include Extras: $allow_extras"
+    echo "Major Dart Version: $major_version"
+    validate_unzip
+    if [ "$?" -gt 0 ]; then
+        exit 3
+    fi
+
+    if [ $major_version -lt "2" ]; then
+        allow_extras=1
+    fi
+
+    # Check if this is a beta version
+    if [ "${version: -5}" == ".beta" ]; then
+        channel="beta"
+    fi
+    # Check if this is a dev version
+    if [[ $version == *"dev"* ]]; then
+        channel="dev"
+    fi
+
+    # Special handing for M1 mac. Only version > 2.14.2 have arm versions available. Installing an earlier version should use x64.
+    if [ $arch = "arm64" ] && [ $platform = "macos" ]; then
+        URL="https://storage.googleapis.com/dart-archive/channels/${channel}/release/${version}/sdk/dartsdk-${platform}-${arch}-release.zip"
+        echo "Checking if arm version exists..."
+        echo $URL
+        local status=`curl --silent --write-out '%{http_code}' --output /dev/null -X HEAD "https://storage.googleapis.com/dart-archive/channels/${channel}/release/${version}/sdk/dartsdk-${platform}-${arch}-release.zip"`
+        if [ $status -eq "200" ]; then
+            echo "Found arm version"
+        else
+            echo "Could not find arm binary for version: ${version}. Defaulting to x64 version..."
+            arch="x64"
+        fi
+    fi
+
+    # install the sdk
+    URL="https://storage.googleapis.com/dart-archive/channels/${channel}/release/${version}/sdk/dartsdk-${platform}-${arch}-release.zip"
+    echo "Installing Dart SDK..."
+    echo $URL
+    curl $URL -o "${tempdir}/sdk.zip"
+
+    if [ $allow_extras -eq "1" ]; then
+        # install content_shell
+        URL="https://storage.googleapis.com/dart-archive/channels/stable/release/${version}/dartium/content_shell-${platform}-${arch}-release.zip"
+        echo "Installing Content Shell..."
+        echo $URL
+        curl $URL -o "${tempdir}/content_shell.zip"
+
+        # install dartium
+        URL="https://storage.googleapis.com/dart-archive/channels/stable/release/${version}/dartium/dartium-${platform}-${arch}-release.zip"
+        echo "Installing Dartium..."
+        echo $URL
+        curl $URL -o "${tempdir}/dartium.zip"
+    fi
+
+    echo "Unzipping Dart SDK to $install_path..."
+    # Create symlink to redirect un-zipping to this directory
+    ln -s . "$install_path/dart-sdk"
+    if command -v unzip &> /dev/null
+    then
+        unzip -d "$install_path" "$tempdir/sdk.zip" > /dev/null 2>&1
+    else
+        7z x "$tempdir/sdk.zip" -o"$install_path" > /dev/null 2>&1
+    fi
+
+    # Clean up symlink
+    rm -f "$install_path/dart-sdk"
+
+    if [ $allow_extras -eq "1" ]; then
+        echo "Unzipping Content Shell to $install_path..."
+        unzip -d "$install_path" "$tempdir/content_shell.zip" > /dev/null 2>&1
+        echo "Unzipping Dartium to $install_path..."
+        unzip -d "$install_path" "$tempdir/dartium.zip" > /dev/null 2>&1
+        local dartium_dir=$(ls $install_path | grep "dartium-")
+        local content_shell_dir=$(ls $install_path | grep "drt-")
+        if [ "$platform" = "macos" ]; then
+            echo "open $install_path/$dartium_dir/Chromium.app" >> $install_path/$dartium_dir/dartium
+            chmod +x $install_path/$dartium_dir/dartium
+            ln -s $install_path/$content_shell_dir/Content\ Shell.app/Contents/MacOS/Content\ Shell $install_path/$content_shell_dir/content_shell
+        else
+            ln -s $install_path/$dartium_dir/chrome $install_path/$dartium_dir/dartium
+            # content_shell should already be available without making an explicit link
+        fi
+    fi
+
+    rm -rf "${tempdir}"
+}
+
+install_dart $ASDF_INSTALL_TYPE $ASDF_INSTALL_VERSION $ASDF_INSTALL_PATH
