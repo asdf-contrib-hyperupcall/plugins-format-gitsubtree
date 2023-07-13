@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+if [ "$SBCL_HOME" = "" ]; then
+  export SBCL_HOME="$ASDF_INSTALL_PATH/lib/sbcl"
+fi
