@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+set -e
+set -o pipefail
+
+[ -n "$ASDF_INSTALL_PATH" ] || (echo >&2 'Missing ASDF_INSTALL_PATH' && exit 1)
+
+rm -rf "$ASDF_INSTALL_PATH"
