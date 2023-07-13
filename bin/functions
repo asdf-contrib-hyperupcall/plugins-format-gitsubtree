@@ -1,0 +1,214 @@
+#!/usr/bin/env bash
+
+CACHE_DIR="/tmp/asdf-sbcl.cache"
+SCRIPT_PATH="$(
+    cd -- "$(dirname "$0")" >/dev/null 2>&1
+    pwd -P
+)"
+
+mkdir -p ${CACHE_DIR}
+
+function get_arch() {
+    local arch=""
+    local arch_check="$(uname -m)"
+    case "${arch_check}" in
+    x86_64 | amd64) arch="x86-64" ;;
+    i686 | i386 | 386) arch="x86" ;;
+    aarch64 | arm64) arch="arm64" ;;
+    ppc64le) arch="powerpc" ;;
+    esac
+
+    printf "%s" "$arch"
+}
+
+OS="$(uname | tr '[:upper:]' '[:lower:]')"
+ARCH="$(get_arch)"
+
+case $(uname -s) in
+Darwin)
+    case $(get_arch) in
+    arm64)
+        STAT="stat -f %c ${CACHE_DIR}/*"
+        TEMP_DIR=$(mktemp -dt asdf-sbcl)
+        VERSION="2.1.2"
+        ;;
+    x86-64)
+        STAT="stat -f %c ${CACHE_DIR}/*"
+        TEMP_DIR=$(mktemp -dt asdf-sbcl)
+        VERSION="2.2.9"
+        ;;
+    esac
+    ;;
+Linux)
+    case $(get_arch) in
+    arm64)
+        STAT="stat -c %Z ${CACHE_DIR}/*"
+        TEMP_DIR=$(mktemp -dp /tmp asdf-sbcl.XXXXXXXX)
+        VERSION="1.4.2"
+        ;;
+    x86-64)
+        STAT="stat -c %Z ${CACHE_DIR}/*"
+        TEMP_DIR=$(mktemp -dp /tmp asdf-sbcl.XXXXXXXX)
+        VERSION="2.2.11"
+        ;;
+    esac
+    ;;
+*)
+    STAT="stat -c %Z ${CACHE_DIR}/*"
+    TEMP_DIR=$(mktemp -dp /tmp asdf-sbcl.XXXXXXXX)
+    VERSION="1.4.3"
+    ;;
+esac
+
+BOOTSTRAP_COMPILER="http://prdownloads.sourceforge.net/sbcl/sbcl-${VERSION}-${ARCH}-${OS}-binary.tar.bz2"
+
+case ${GITHUB_PAT} in
+"") CURL_AUTH="" ;;
+*) CURL_AUTH="Authorization: token ${GITHUB_PAT}" ;;
+esac
+
+function check-jq() {
+    bold=$(tput bold)
+    nc=$(tput sgr0)
+    USAGE="Install ${bold}jq${nc} to continue. Aborting."
+
+    if ! [ -x "$(command -v jq)" ]; then
+        printf "$USAGE" >&2
+        exit 1
+    fi
+}
+
+trap "cd ${PWD}; rm -rf ${TEMP_DIR}" EXIT
+
+function retrieve-tags() {
+    LAST=$(curl -Ss -I -H "${CURL_AUTH}" https://api.github.com/repos/sbcl/sbcl/tags |
+        perl -n -e'/page=\d+.*page=(\d+)/ && print $1')
+    for i in $(seq ${LAST}); do
+        curl -Ss -H "${CURL_AUTH}" https://api.github.com/repos/sbcl/sbcl/tags?page=$i
+    done
+}
+
+function retrieve-json() {
+    if [[ ! -e "${CACHE_DIR}/asdf-sbcl.json" ]] || [[ $(set -- $(${STAT}) && echo ${1}) -le $(($(date +%s) - 3600)) ]]; then
+        VERSIONS='add | map(select(.name | test("^sbcl-[0-9]"))) | .[].name |= sub("^sbcl-";"")'
+        retrieve-tags | jq -s "${VERSIONS}" >${CACHE_DIR}/asdf-sbcl.json
+    fi
+}
+
+function install-bootstrap() {
+    if [[ ! -e "${CACHE_DIR}/bootstrap/bin/sbcl" ]]; then
+        curl -Lo ${TEMP_DIR}/bootstrap.tar.bz2 -C - ${BOOTSTRAP_COMPILER}
+        mkdir -p ${TEMP_DIR}/bootstrap-installer ${CACHE_DIR}/bootstrap
+        tar -xvf ${TEMP_DIR}/bootstrap.tar.bz2 -C ${TEMP_DIR}/bootstrap-installer --strip-components 1 || exit 1
+        cd ${TEMP_DIR}/bootstrap-installer
+        INSTALL_ROOT=${CACHE_DIR}/bootstrap sh install.sh
+    fi
+}
+
+function list-all() {
+    retrieve-json
+    jq -r '.[].name' ${CACHE_DIR}/asdf-sbcl.json |
+        sort -t. -k 1,1n -k 2,2n -k 3,3n |
+        tr '\n' ' '
+}
+
+function construct_configure_options() {
+    if [ "$SBCL_CONFIGURE_OPTIONS" = "" ]; then
+        local configure_options="--with-sb-core-compression --with-sb-thread --with-sb-linkable-runtime --with-sb-rotate-byte"
+    else
+        local configure_options="$SBCL_CONFIGURE_OPTIONS"
+    fi
+    echo "$configure_options"
+}
+
+function install() {
+    local configure_options="$(construct_configure_options)"
+
+    SHA_QUERY=".[] | select(.name == \"${ASDF_INSTALL_VERSION}\") | .commit.sha"
+    SHA=$(jq -r "${SHA_QUERY}" ${CACHE_DIR}/asdf-sbcl.json)
+    install-bootstrap
+
+    if [[ ! -d "${CACHE_DIR}/sbcl/.git" ]]; then
+        git -C ${CACHE_DIR} clone https://github.com/sbcl/sbcl.git
+    fi
+    cd ${CACHE_DIR}/sbcl
+    git fetch --all
+    git reset --hard origin/master
+    rm -rf .git/rebase-apply
+    git checkout ${SHA}
+
+    if [ "${ASDF_INSTALL_VERSION}" = "2.1.2" ]; then
+        echo "#### Applying Linkable Runtime Patch to SBCL ####" >/dev/stderr
+        git am <"$SCRIPT_PATH/../patches/enable-sb-linkable-runtime-on-arm-and-arm64.patch"
+        echo "#### Applied Linkable Runtime Patch to SBCL  ####" >/dev/stderr
+    fi
+
+    if [ "${ASDF_INSTALL_VERSION}" = "2.1.3" ]; then
+        echo "#### Applying Linkable Runtime Patch to SBCL ####" >/dev/stderr
+        git am <"$SCRIPT_PATH/../patches/enable-sb-linkable-runtime-on-arm-and-arm64.patch"
+        echo "#### Applied Linkable Runtime Patch to SBCL  ####" >/dev/stderr
+    fi
+
+    if [ "${ASDF_INSTALL_VERSION}" = "2.1.4" ]; then
+        echo "#### Applying Linkable Runtime Patch to SBCL ####" >/dev/stderr
+        git am <"$SCRIPT_PATH/../patches/enable-sb-linkable-runtime-on-arm-and-arm64.patch"
+        echo "#### Applied Linkable Runtime Patch to SBCL  ####" >/dev/stderr
+    fi
+
+    if [ "${ASDF_INSTALL_VERSION}" = "2.1.5" ]; then
+        echo "#### Applying Linkable Runtime Patch to SBCL ####" >/dev/stderr
+        git am <"$SCRIPT_PATH/../patches/enable-sb-linkable-runtime-on-arm-and-arm64.patch"
+        echo "#### Applied Linkable Runtime Patch to SBCL  ####" >/dev/stderr
+    fi
+
+    if [ "${ASDF_INSTALL_VERSION}" = "2.1.6" ]; then
+        echo "#### Applying Linkable Runtime Patch to SBCL ####" >/dev/stderr
+        git am <"$SCRIPT_PATH/../patches/enable-sb-linkable-runtime-on-arm-and-arm64.patch"
+        echo "#### Applied Linkable Runtime Patch to SBCL  ####" >/dev/stderr
+    fi
+
+    if [ "${ASDF_INSTALL_VERSION}" = "2.1.7" ]; then
+        echo "#### Applying Linkable Runtime Patch to SBCL ####" >/dev/stderr
+        git am <"$SCRIPT_PATH/../patches/enable-sb-linkable-runtime-on-arm-and-arm64.patch"
+        echo "#### Applied Linkable Runtime Patch to SBCL  ####" >/dev/stderr
+    fi
+
+    if [ "${ASDF_INSTALL_VERSION}" = "2.1.8" ]; then
+        echo "#### Applying Linkable Runtime Patch to SBCL ####" >/dev/stderr
+        git am <"$SCRIPT_PATH/../patches/enable-sb-linkable-runtime-on-arm-and-arm64.patch"
+        echo "#### Applied Linkable Runtime Patch to SBCL  ####" >/dev/stderr
+    fi
+
+    if [ "${ASDF_INSTALL_VERSION}" = "2.1.9" ]; then
+        echo "#### Applying Linkable Runtime Patch to SBCL ####" >/dev/stderr
+        git am <"$SCRIPT_PATH/../patches/enable-sb-linkable-runtime-on-arm-and-arm64.patch"
+        echo "#### Applied Linkable Runtime Patch to SBCL  ####" >/dev/stderr
+    fi
+
+    if [ "${ASDF_INSTALL_VERSION}" = "2.1.10" ]; then
+        echo "#### Applying Linkable Runtime Patch to SBCL ####" >/dev/stderr
+        git am <"$SCRIPT_PATH/../patches/enable-sb-linkable-runtime-on-arm-and-arm64.patch"
+        echo "#### Applied Linkable Runtime Patch to SBCL  ####" >/dev/stderr
+    fi
+
+    if [ "${ASDF_INSTALL_VERSION}" = "2.1.11" ]; then
+        echo "#### Applying Linkable Runtime Patch to SBCL ####" >/dev/stderr
+        git am <"$SCRIPT_PATH/../patches/enable-sb-linkable-runtime-on-arm-and-arm64.patch"
+        echo "#### Applied Linkable Runtime Patch to SBCL  ####" >/dev/stderr
+    fi
+
+    PATH=${CACHE_DIR}/bootstrap/bin:${PATH} INSTALL_ROOT=${ASDF_INSTALL_PATH} SBCL_HOME=${CACHE_DIR}/bootstrap/lib/sbcl sh make.sh ${configure_options} &&
+        INSTALL_ROOT=${ASDF_INSTALL_PATH} SBCL_HOME=${ASDF_INSTALL_PATH}/lib/sbcl sh install.sh
+    echo "Installed SBCL" >/dev/stderr
+
+    ${ASDF_INSTALL_PATH}/bin/sbcl --version
+}
+
+case $(basename ${0}) in
+list-all)
+    check-jq && list-all
+    ;;
+install)
+    check-jq && install
+    ;;
+esac

@@ -1,0 +1,28 @@
+name: Build
+on:
+  pull_request:
+    paths-ignore:
+      - "**.md"
+  push:
+    paths-ignore:
+      - "**.md"
+  schedule:
+    - cron: "15 0 * * 1"
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: install dependencies
+        run: sudo apt-get install libzstd-dev
+      - name: asdf plugin test
+        uses: asdf-vm/actions/plugin-test@v1
+        with:
+          command: sbcl --version
+  mac:
+    runs-on: macos-latest
+    steps:
+      - name: asdf plugin test
+        uses: asdf-vm/actions/plugin-test@v1
+        with:
+          command: sbcl --version
