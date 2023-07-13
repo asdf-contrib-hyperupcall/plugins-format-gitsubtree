@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+
+set -e
+set -o pipefail
+
+ASDF_INSTALL_TYPE=${ASDF_INSTALL_TYPE:-version}
+[ -n "$ASDF_INSTALL_VERSION" ] || (echo >&2 'Missing ASDF_INSTALL_VERSION' && exit 1)
+[ -n "$ASDF_INSTALL_PATH" ] || (echo >&2 'Missing ASDF_INSTALL_PATH' && exit 1)
+
+install() {
+  local install_type
+  # shellcheck disable=SC2034
+  install_type=$1
+  local version
+  version=$2
+  local install_path
+  install_path=$3
+  local bin_install_path
+  bin_install_path="$install_path/bin"
+  local download_url
+  download_url="$(get_download_url "$version")"
+  local arch
+  arch="$(get_arch)"
+  local platform
+  platform="$(get_platform)"
+  local extension
+  extension="$(get_extension)"
+  local tmp_download_dir
+  tmp_download_dir="$(mktemp -d -t kcctl_XXXXXXX)"
+
+  mkdir -p "${bin_install_path}"
+
+  echo "Downloading kcctl from ${download_url}"
+  curl -sSL "$download_url" -o "${tmp_download_dir}/kcctl.${extension}"
+  case "${extension}" in
+    zip)
+      unzip "${tmp_download_dir}/kcctl.${extension}" -d "${tmp_download_dir}"
+    ;;
+    tar.gz)
+      tar -xzf "${tmp_download_dir}/kcctl.${extension}" -C "${tmp_download_dir}"
+    ;;
+    *)
+      echo "Unknown extension: ${extension}"
+      exit 1
+    ;;
+  esac
+  # FIXME: mv "${tmp_download_dir}/kcctl-${version}-${platform}-${arch}/" "${bin_install_path}"
+  mv "${tmp_download_dir}/kcctl-${version}-${platform}-${arch}/bin/kcctl" "${bin_install_path}"
+  rm -f "${tmp_download_dir}/kcctl.tar.gz"
+}
+
+get_arch() {
+  arch=$(uname -m | tr '[:upper:]' '[:lower:]')
+  case ${arch} in
+    x86_64|amd64)
+      echo 'x86_64'
+      ;;
+    *)
+      echo "Unknown architecture: ${arch}"
+      exit 1
+    ;;
+  esac
+}
+
+get_extension() {
+  plat=$(uname -s | tr '[:upper:]' '[:lower:]')
+  case ${plat} in
+    darwin)
+      echo 'zip'
+      ;;
+    linux)
+      echo 'tar.gz'
+      ;;
+    windows)
+      echo 'zip'
+      ;;
+    *)
+      echo "Unknown platform: ${plat}"
+      exit 1
+    ;;
+  esac
+}
+
+get_platform() {
+  plat=$(uname -s | tr '[:upper:]' '[:lower:]')
+  case ${plat} in
+    darwin)
+      echo 'osx'
+      ;;
+    linux)
+      echo 'linux'
+      ;;
+    windows)
+      echo 'windows'
+      ;;
+    *)
+      echo "Unknown platform: ${plat}"
+      exit 1
+    ;;
+  esac
+}
+
+get_download_url() {
+  local version
+  version="$1"
+  local arch
+  arch="$(get_arch)"
+  local platform
+  platform="$(get_platform)"
+  local extension
+  extension="$(get_extension)"
+  echo "https://github.com/kcctl/kcctl/releases/download/v${version}/kcctl-${version}-${platform}-${arch}.${extension}"
+}
+
+install "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
