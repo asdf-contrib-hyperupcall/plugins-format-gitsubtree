@@ -1,0 +1,92 @@
+#! /usr/bin/env bash
+
+set -eu -o pipefail
+
+. "$(dirname "$0")/../lib/utils.bash"
+
+is_executable() {
+	type "$1" &> /dev/null
+}
+
+fetch() {
+	local url="$1" download_path="$2"
+	local extra_args=()
+
+	if [ "${GITHUB_API_TOKEN:-}" ]; then
+		extra_args+=(--header "Authorization: token $GITHUB_API_TOKEN")
+	fi
+
+	if is_executable aria2c; then
+		aria2c -x4 -c "${extra_args[@]}" "$url" -d "$(dirname "$download_path")" -o "$(basename "$download_path")"
+	else
+		curl -fL -C - "${extra_args[@]}" "$url" -o "$download_path"
+	fi
+}
+
+get_tar_url() {
+	local tag="$1"
+	local extra_args=()
+
+	if [ "${GITHUB_API_TOKEN:-}" ]; then
+		extra_args+=(--header "Authorization: token $GITHUB_API_TOKEN")
+	fi
+
+	curl -fL "${extra_args[@]}" https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/tags/"$tag" \
+		| grep -Eo 'browser_download_url"\s*:\s*"[^"]*' \
+		| grep tar.gz \
+		| grep -o "https://.*$"
+}
+
+download_pre_compiled() {
+	local tag="$1" download_path="$2" tar_url=
+	tar_url=$(get_tar_url "$tag" || true)
+
+	if ! [ "$tar_url" ]; then
+		printf "Installation of version %s not possible: no pre-compiled binaries\n" "$tag"
+		return 1
+	fi
+
+	fetch "$tar_url" "$download_path"
+}
+
+check_for_already_installed() {
+	local target_dir="$ASDF_PROTONGE_STEAM_COMPAT_DIR/Proton-$version"
+
+	if [ -d "$target_dir" ]; then
+		printf "
+$ERROR: Directory for installation already exists and it's not being managed by asdf.
+This is probably because you installed the version with other tools different than asdf, or the versions being managed by asdf went out of sync.
+
+To reinstall this version, remove the existing directory (%s) and try again.
+
+    rm -rf \"%s\" && asdf install %s %s
+
+If you want to force asfd to manage this version (meaning that \`asdf uninstall\` will actually remove this directory), run:
+
+    asdf %s manage %s
+" "$target_dir" "$target_dir" "$PLUGIN_NAME" "$version" "$PLUGIN_NAME" "$version"
+		return 1
+	fi
+}
+
+download() {
+	local download_type= version= download_path=
+
+	check_for_already_installed "$version"
+
+	download_type="$1"
+	version="$2"
+	download_path="$(cd "$3" && pwd -P)"
+
+	local tarball_path=
+	tarball_path="$download_path/tarball.tar.gz"
+
+	if [ "$download_type" = version ]; then
+		download_pre_compiled "$version" "$tarball_path"
+	else
+		printf "Building from source not supported\n"
+		exit 1
+	fi
+}
+
+download "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_DOWNLOAD_PATH"

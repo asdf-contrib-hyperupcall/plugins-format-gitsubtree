@@ -1,0 +1,24 @@
+#! /usr/bin/env bash
+
+set -eu -o pipefail
+
+. "$(dirname "$0")/../lib/utils.bash"
+
+remove_steam_links() {
+	local version="$1" asdf_install_path="$2"
+
+	# Sanity check, all installations made via asdf should be a link
+	if [ -L "$asdf_install_path" ]; then
+		local linked_location=
+		linked_location=$(cd "$asdf_install_path" && pwd -P)
+
+		# Remove true installation location
+		rm -rf "$linked_location"
+		printf "Installation at %s removed\n" "$linked_location"
+		rm "$asdf_install_path"
+	else
+		rm -rf "$asdf_install_path"
+	fi
+}
+
+remove_steam_links "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
