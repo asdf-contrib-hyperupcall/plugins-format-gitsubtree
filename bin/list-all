@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+RELEASES_URI=https://raw.githubusercontent.com/dotnet/core/master/release-notes/releases-index.json
+FILE="releases.json"
+KEY="latest-sdk"
+
+download() {
+    curl -s $RELEASES_URI
+}
+
+match_key() {
+    grep -Eo '"'$1'": \".*\"'
+}
+
+sanitize() {
+    sed -e 's/"'$1'": \"//;s/\"//'
+}
+
+gnutac() {
+    if hash tac 2>/dev/null; then
+        tac "$@"
+    else
+        tail -r "$@"
+    fi
+}
+
+echo $(download | match_key $FILE | sanitize $FILE | xargs curl -s | match_key $KEY | sanitize $KEY | gnutac)
