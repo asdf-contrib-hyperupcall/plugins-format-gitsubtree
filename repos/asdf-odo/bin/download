@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+if [[ "${ASDF_ODO_VERBOSE:-false}" == "true" ]]; then
+  set -x
+fi
+
+current_script_path=${BASH_SOURCE[0]}
+plugin_dir=$(dirname "$(dirname "$current_script_path")")
+
+mkdir -p "$ASDF_DOWNLOAD_PATH/bin"
+
+# shellcheck source=../lib/utils.bash
+source "${plugin_dir}/lib/utils.bash"
+
+if [[ "$ASDF_INSTALL_TYPE" == "ref" ]]; then
+  dl_dir="$ASDF_DOWNLOAD_PATH"
+  gh_repo="${ASDF_GITHUB_REPO_FOR_ODO:-$GH_REPO}"
+  gh_ref="${ASDF_INSTALL_VERSION}"
+  download_ref "$dl_dir" "$gh_repo" "$gh_ref"
+else
+  release_file="$ASDF_DOWNLOAD_PATH/bin/$TOOL_NAME"
+  download_release "$ASDF_INSTALL_VERSION" "$release_file"
+fi
