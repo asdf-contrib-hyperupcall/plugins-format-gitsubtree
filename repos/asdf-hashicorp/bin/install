@@ -1,0 +1,187 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+fail() {
+  echo "Fail: $*"
+  exit 1
+}
+
+# required environment variables
+: "${ASDF_INSTALL_TYPE?}"
+: "${ASDF_INSTALL_VERSION?}"
+: "${ASDF_INSTALL_PATH?}"
+
+# detect the tool name
+__dirname="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+toolname="$(basename "$(dirname "${__dirname}")")"
+readonly __dirname
+readonly toolname
+
+# make a temporary download directory with a cleanup hook
+TMP_DOWNLOAD_DIR="$(mktemp -d -t "asdf_${toolname}_XXXXXX")"
+readonly TMP_DOWNLOAD_DIR
+trap 'rm -rf "${TMP_DOWNLOAD_DIR?}"' EXIT
+
+SKIP_VERIFY=${ASDF_HASHICORP_SKIP_VERIFY:-"false"}
+gnupg() {
+  # This is one of the rare times when we want word splitting, so we can supply
+  # a caller-specified number of arguments to this function to `gpg` as
+  # arguments.
+  #
+  # shellcheck disable=SC2068
+  GNUPGHOME="${TMP_DOWNLOAD_DIR}" gpg $@
+}
+
+verify() {
+  # Release archive checksum verification - see
+  # https://www.hashicorp.com/security
+  #
+  # Returns 1 on GPG signature verification error, 2 on checksum error.
+  local -r version="$1"
+  local -r platform="$(get_platform)"
+  local -r arch="$(get_arch)"
+  local -r checksum_path="${TMP_DOWNLOAD_DIR}/$(get_checksum_filename "${version}")"
+  local -r gpg_path="${TMP_DOWNLOAD_DIR}/$(get_gpg_filename "${version}")"
+
+  gnupg --import "${__dirname}/../hashicorp.asc"
+  if ! curl -fs "$(get_download_url "${version}" "checksum")" -o "${checksum_path}"; then
+    echo "couldn't download checksum file" >&2
+  fi
+  if ! curl -fs "$(get_download_url "${version}" "gpg" "72D7468F")" -o "${gpg_path}" &&
+    ! curl -fs "$(get_download_url "${version}" "gpg")" -o "${gpg_path}"; then
+    echo "couldn't download gpg signature file" >&2
+  fi
+
+  if ! gnupg --verify "${gpg_path}" "${checksum_path}"; then
+    echo "gpg verification failed" >&2
+    return 1
+  fi
+  shasum_command="shasum -a 256"
+  if ! command -v shasum &>/dev/null; then
+    shasum_command=sha256sum
+  fi
+  if ! (cd "${TMP_DOWNLOAD_DIR}" && ${shasum_command} -c <(grep "${platform}_${arch}.zip" "${checksum_path}")); then
+    echo "checksum verification failed" >&2
+    return 2
+  fi
+}
+
+install() {
+  local -r install_type="$1"
+  local -r version="$2"
+  local -r install_path="$3"
+
+  if [ "$install_type" != "version" ]; then
+    fail "asdf-hashicorp supports release installs only"
+  fi
+
+  local -r bin_install_path="${install_path}/bin"
+  local -r download_url="$(get_download_url "${version}" "zip")"
+  local -r download_path="${TMP_DOWNLOAD_DIR}/$(get_zip_filename "${version}")"
+
+  echo "Downloading ${toolname} version ${version} from ${download_url}"
+  if curl -fs "${download_url}" -o "${download_path}"; then
+    if command -v gpg >/dev/null 2>&1 && [ "${SKIP_VERIFY}" == "false" ]; then
+      echo "Verifying signatures and checksums"
+      verify "${version}" "${download_path}"
+    else
+      echo "Skipping verifying signatures and checksums either because gpg is not installed or explicitly skipped with ASDF_HASHICORP_SKIP_VERIFY"
+    fi
+
+    echo "Cleaning ${toolname} previous binaries"
+    rm -rf "${bin_install_path:?}/${toolname}"
+
+    echo "Creating ${toolname} bin directory"
+    mkdir -p "${bin_install_path}"
+
+    echo "Extracting ${toolname} archive"
+    unzip -qq "${download_path}" -d "${bin_install_path}"
+  else
+    echo "Error: ${toolname} version ${version} not found" >&2
+    echo "Check documentation for alternatives https://github.com/asdf-community/asdf-hashicorp#usage" >&2
+    exit 1
+  fi
+}
+
+get_platform() {
+  local -r kernel="$(uname -s)"
+  if [[ ${OSTYPE} == "msys" || ${kernel} == "CYGWIN"* || ${kernel} == "MINGW"* ]]; then
+    echo windows
+  else
+    uname | tr '[:upper:]' '[:lower:]'
+  fi
+}
+
+get_arch() {
+  local -r machine="$(uname -m)"
+  local -r upper_toolname=$(echo "${toolname//-/_}" | tr '[:lower:]' '[:upper:]')
+  local -r tool_specific_arch_override="ASDF_HASHICORP_OVERWRITE_ARCH_${upper_toolname}"
+
+  OVERWRITE_ARCH=${!tool_specific_arch_override:-${ASDF_HASHICORP_OVERWRITE_ARCH:-"false"}}
+
+  if [[ ${OVERWRITE_ARCH} != "false" ]]; then
+    echo "${OVERWRITE_ARCH}"
+  elif [[ ${machine} == "arm64" ]] || [[ ${machine} == "aarch64" ]]; then
+    echo "arm64"
+  elif [[ ${machine} == *"arm"* ]] || [[ ${machine} == *"aarch"* ]]; then
+    echo "arm"
+  elif [[ ${machine} == *"386"* ]]; then
+    echo "386"
+  else
+    echo "amd64"
+  fi
+}
+
+get_zip_filename() {
+  local -r version="$1"
+  local -r platform="$(get_platform)"
+  local -r arch="$(get_arch)"
+  echo "${toolname}_${version}_${platform}_${arch}.zip"
+}
+
+get_checksum_filename() {
+  local -r version="$1"
+  echo "${toolname}_${version}_SHA256SUMS"
+}
+
+get_gpg_filename() {
+  local -r version="$1"
+  local -r keyid="${2-}"
+  if [[ -n ${keyid} ]]; then
+    echo "${toolname}_${version}_SHA256SUMS.${keyid}.sig"
+  else
+    echo "${toolname}_${version}_SHA256SUMS.sig"
+  fi
+}
+
+get_download_url() {
+  local -r version="$1"
+  local -r type="$2"
+  local -r keyid="${3-}"
+
+  case "${type}" in
+    zip)
+      local -r filename="$(get_zip_filename "${version}")"
+      ;;
+    checksum)
+      local -r filename="$(get_checksum_filename "${version}")"
+      ;;
+    gpg)
+      local -r filename="$(get_gpg_filename "${version}" "${keyid}")"
+      ;;
+    *)
+      echo "${type} is not a valid type of URL to download" >&2
+      exit 1
+      ;;
+  esac
+  local -r releases_host="https://releases.hashicorp.com"
+
+  if ! curl -fs "${releases_host}/${toolname}/${version}/${filename}" >/dev/null && [[ ${filename} == *"arm64"* ]]; then
+    echo "https://releases.hashicorp.com/${toolname}/${version}/${filename//arm64/arm}"
+  else
+    echo "https://releases.hashicorp.com/${toolname}/${version}/${filename}"
+  fi
+}
+
+install "${ASDF_INSTALL_TYPE}" "${ASDF_INSTALL_VERSION}" "${ASDF_INSTALL_PATH}"
