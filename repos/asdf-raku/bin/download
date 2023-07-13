@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/../lib/utils.sh"
+
+http_download() {
+  local version=$1
+  local path=$2
+  local install_type=$3
+  local url_path="https://rakudo.org/dl/rakudo"
+
+  if [ "$install_type" != "version" ]; then
+    die "Install type '$install_type' not supported."
+  fi
+
+  local filename
+  if [ "${ASDF_RAKU_BUILD:-}" ]; then
+    filename="rakudo-$version.tar.gz"
+    # checksum expects this file to be inside rakudo dir
+    if [ ! -d "${path}/rakudo" ]; then
+      mkdir "${path}/rakudo"
+    fi
+    if [ -e "${path}/rakudo/${filename}" ]; then
+      rm "${path}/rakudo/${filename}"
+    fi
+    ln -s "${path}/${filename}" "${path}/rakudo/${filename}"
+  else
+    filename="$(filename $version)" || die "URL not found for version '$version'."
+  fi
+
+  echo "Downloading $filename to $path ..."
+  if curl --version &>/dev/null; then
+    curl -fsSL -o "${path}/${filename}" "${url_path}/${filename}" \
+      && curl -fsSL -o "${path}/${filename}.checksums.txt" "${url_path}/${filename}.checksums.txt"
+  elif wget --version &>/dev/null; then
+    wget -q -O "${path}/${filename}" "${url_path}/${filename}" \
+      && wget -q -O "${path}/${filename}.checksums.txt" "${url_path}/${filename}.checksums.txt"
+  else
+    die "'curl' or 'wget' required."
+  fi
+
+  cd $path
+  sha256sum --status -c "${path}/${filename}.checksums.txt"
+
+  if [ "$?" -eq 0 ]; then
+    echo "Download complete!"
+  else
+    die "Checksum verification failure."
+  fi
+}
+
+http_download "$ASDF_INSTALL_VERSION" "$ASDF_DOWNLOAD_PATH" "$ASDF_INSTALL_TYPE"
