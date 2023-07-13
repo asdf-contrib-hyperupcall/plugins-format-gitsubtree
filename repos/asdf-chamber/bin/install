@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# shellcheck source=../lib/utils.bash
+source "$(dirname "$0")/../lib/utils.bash"
+
+install_version() {
+  local install_type="$1"
+  local version="$2"
+  local download_path="$3"
+  local install_path="$4"
+
+  if [ "$install_type" != "version" ]; then
+    fail "asdf-$TOOL_NAME supports release installs only"
+  fi
+
+  if [ -z "$download_path" ]; then
+    # asdf < 0.8, have to download chamber here.
+    download_path="$install_path"
+    ASDF_DOWNLOAD_PATH="$download_path" "$(dirname "$0")/download"
+  fi
+
+  local release_file="$download_path/$TOOL_NAME-$version"
+  (
+    mkdir -p "$install_path/bin"
+    mv "$release_file" "$install_path/bin/${TOOL_NAME}"
+    chmod +x "$install_path/bin/${TOOL_NAME}"
+
+    local tool_cmd
+    tool_cmd="$(echo "$TOOL_TEST" | cut -d' ' -f1)"
+    test -x "$install_path/bin/$tool_cmd" || fail "Expected $install_path/bin/$tool_cmd to be executable."
+
+    echo "$TOOL_NAME $version installation was successful!"
+  ) || (
+    rm -rf "$install_path"
+    fail "An error ocurred while installing $TOOL_NAME $version."
+  )
+}
+
+install_version "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "${ASDF_DOWNLOAD_PATH:-}" "$ASDF_INSTALL_PATH"
