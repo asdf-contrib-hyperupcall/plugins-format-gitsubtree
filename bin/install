@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+fail() {
+  echo -e "\e[31mFail:\e[m $*"
+  exit 1
+}
+
+install() {
+  local install_type=$1
+  local version=$2
+  local install_path=$3
+
+  if [ "$install_type" != "version" ]; then
+    fail "asdf-clojure supports release installs only"
+  fi
+
+  local download_url="https://download.clojure.org/install/clojure-tools-${version}.tar.gz"
+  local file_name="clojure-tools-${version}.tar.gz"
+  local tmp_download_dir
+  tmp_download_dir=$(mktemp -d -t clojure_tmp_XXXXXX)
+  local source_path="${tmp_download_dir}/${file_name}"
+  local distination_path="${tmp_download_dir}/dist"
+
+  (
+    curl --silent --location --output "$source_path" -C - "$download_url" || fail "Could not download Clojure installer for $version"
+    mkdir -p "$distination_path"
+    tar zxf "$source_path" -C "$distination_path" --strip-components=1
+
+    cd "$distination_path"
+    grep -v -i ruby install.sh >install-without-ruby.sh
+    sed -i.bak "s|PREFIX|\"${install_path}\"|g" clojure
+    sed -i.bak "s|BINDIR|\"${install_path}/bin\"|g" clj
+
+    mkdir -p "$install_path"
+    chmod +x install-without-ruby.sh
+    ./install-without-ruby.sh "$install_path"
+  ) || (
+    rm -rf "$install_path"
+    fail "An error occurred"
+  )
+  rm -rf "$tmp_download_dir"
+}
+
+install "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
