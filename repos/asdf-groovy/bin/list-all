@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+curl -s https://groovy.jfrog.io/artifactory/dist-release-local/groovy-zips/ | grep -e '.*apache-groovy-binary.*.zip"' | cut -d '"' -f 2 | sed -e 's#^apache-groovy-binary-##' -e 's#.zip$##' | sort --version-sort | xargs echo
