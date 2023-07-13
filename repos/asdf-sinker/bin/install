@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+[[ -z ${ASDF_INSTALL_TYPE} ]] && echo "ASDF_INSTALL_TYPE is required" && exit 1
+[[ -z ${ASDF_INSTALL_VERSION} ]] && echo "ASDF_INSTALL_VERSION is required" && exit 1
+[[ -z ${ASDF_INSTALL_PATH} ]] && echo "ASDF_INSTALL_PATH is required" && exit 1
+[[ ${ASDF_INSTALL_TYPE} != version ]] && echo "install type '${ASDF_INSTALL_TYPE}' is not supported." && exit 1
+
+platform="$(uname | tr A-Z a-z)"
+
+tmp_dir=$(mktemp -d -t sinker_XXXX)
+cleanup() {
+  rm -rf ${tmp_dir}
+}
+trap cleanup INT TERM EXIT
+
+install() {
+  # Note that we're adding back the 'v' tag prefix.
+  local version=$1
+  if [[ ! $version =~ v ]]; then
+    version=v$1
+  fi
+  local install_path="$2/bin/"
+  local bin_path="${install_path}/sinker"
+
+  local download_url
+  # ¯\_(ツ)_/¯ 'sinker' only has x86_64 binaries...
+  download_url="https://github.com/plexsystems/sinker/releases/download/${version}/sinker-${platform}-amd64"
+
+  mkdir -p "${install_path}"
+
+  cd ${tmp_dir}
+  echo "Downloading sinker from ${download_url}"
+  curl -L "$download_url" -o "${bin_path}"
+  chmod +x "${bin_path}"
+  echo
+  echo "Sinker ${version} installed."
+}
+
+install ${ASDF_INSTALL_VERSION} ${ASDF_INSTALL_PATH}
