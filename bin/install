@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+
+set \
+  -o nounset \
+  -o pipefail \
+  -o errexit
+
+# required environment variables
+: ${ASDF_INSTALL_TYPE?}
+: ${ASDF_INSTALL_VERSION?}
+: ${ASDF_INSTALL_PATH?}
+
+# detect the tool name
+readonly __dirname="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly toolname="$(basename "$(dirname "${__dirname}")")"
+
+# make a temporary download directory with a cleanup hook
+readonly TMP_DOWNLOAD_DIR="$(mktemp -d -t "asdf_${toolname}_XXXXXX")"
+trap 'rm -rf "${TMP_DOWNLOAD_DIR?}"' EXIT
+
+install () {
+  local -r install_type="$1"
+  local -r version="$2"
+  local -r install_path="$3"
+
+  local -r bin_install_path="${install_path}/bin"
+  local -r lib_install_path="${install_path}/lib"
+
+  local -r download_url="$(get_download_url "${version}")"
+  local -r download_path="${TMP_DOWNLOAD_DIR}/$(get_filename "${version}")"
+
+  if curl -fs "${download_url}" -o "${download_path}"; then
+    local -r source_base_path="${TMP_DOWNLOAD_DIR}/src/github.com/ksonnet"
+    local -r source_path="${source_base_path}/${toolname}"
+
+    echo "Extracting ${toolname} archive"
+    mkdir -p "${source_base_path}"
+    unzip -qq "${download_path}" -d "${source_base_path}"
+    mv "${source_base_path}/${toolname}-${version}" "${source_path}"
+
+    if [[ -d "${source_path}/cmd/ks" ]]; then
+      local -r bin_path="${source_path}/cmd/ks"
+    else
+      local -r bin_path="${source_path}"
+    fi
+
+    echo "Compiling version ${version} of ${toolname}"
+    ( \
+      cd "${bin_path}" \
+      && export GOPATH="${TMP_DOWNLOAD_DIR}" \
+      && go build -ldflags="-X main.version=${version}"
+    )
+
+    echo "Cleaning ${toolname} previous binaries"
+    rm -rf "${bin_install_path?}"
+
+    echo "Creating ${toolname} bin directory"
+    mkdir -p "${bin_install_path}"
+
+    local f
+    for f in "${bin_path}"/*; do
+      if [[ -f "${f}" ]] \
+      && [[ -x "${f}" ]]; then
+        cp "${f}" "${bin_install_path}"
+      fi
+    done
+
+    if [[ -d "${source_path}/lib" ]]; then
+      echo "Installing ksonnet libraries into ${lib_install_path}"
+      cp -r "${source_path}/lib" "${lib_install_path}"
+    fi
+  else
+    echo "Error: ${toolname} version ${version} not found" >&2
+    exit 1
+  fi
+}
+
+get_arch () {
+  uname | tr '[:upper:]' '[:lower:]'
+}
+
+get_filename () {
+  local -r version="$1"
+
+  local -r arch="$(get_arch)"
+  if [[ ${version} =~ ^[0-9] ]]; then
+    echo "v${version}"
+  else
+    echo "${version}"
+  fi
+}
+
+get_download_url () {
+  local -r version="$1"
+
+  local -r filename="$(get_filename "${version}")"
+  echo "https://codeload.github.com/ksonnet/${toolname}/zip/${filename}"
+}
+
+install "${ASDF_INSTALL_TYPE}" "${ASDF_INSTALL_VERSION}" "${ASDF_INSTALL_PATH}"
