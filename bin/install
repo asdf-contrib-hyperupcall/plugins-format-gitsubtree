@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+
+set -o nounset -o pipefail -o errexit
+IFS=$'\t\n'
+
+asdf_kompose_fail() {
+  echo >&2 "⛔ $*"
+  exit 1
+}
+
+asdf_kompose_download_wget() {
+  local KOMPOSE_PACKAGE_OS_TYPE=$1
+  # Download archive
+  wget -O "kompose" "https://github.com/kubernetes/kompose/releases/download/v${ASDF_INSTALL_VERSION}/kompose-${KOMPOSE_PACKAGE_OS_TYPE}-amd64"
+}
+
+asdf_kompose_download_curl() {
+  local KOMPOSE_PACKAGE_OS_TYPE=$1
+  # Download archive
+  curl -sSL -o "kompose" "https://github.com/kubernetes/kompose/releases/download/v${ASDF_INSTALL_VERSION}/kompose-${KOMPOSE_PACKAGE_OS_TYPE}-amd64"
+}
+
+asdf_kompose_download() {
+  local KOMPOSE_PACKAGE_OS_TYPE=""
+  if [[ "$OSTYPE" == "linux-gnu"* || "$OSTYPE" == "cygwin" ]]; then
+    KOMPOSE_PACKAGE_OS_TYPE="linux"
+  elif [[ "$OSTYPE" == "darwin"* ]]; then
+    KOMPOSE_PACKAGE_OS_TYPE="darwin"
+  elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+    KOMPOSE_PACKAGE_OS_TYPE="windows"
+  else
+    echo "Unknown or unsupported OS type. Please raise a issue."
+  fi
+  if [ -x "$(which wget)" ]; then
+    asdf_kompose_download_wget $KOMPOSE_PACKAGE_OS_TYPE
+  else
+    if [ -x "$(which curl)" ]; then
+      asdf_kompose_download_curl $KOMPOSE_PACKAGE_OS_TYPE
+    fi
+  fi
+}
+
+asdf_kompose_install() {
+  local ASDF_KOMPOSE_DIR=""
+  ASDF_KOMPOSE_DIR="$(mktemp -d -t asdf-kompose-XXXXXXX)"
+  echo "Installing kompose v${ASDF_INSTALL_VERSION} in ${ASDF_INSTALL_PATH}"
+  (
+    cd "${ASDF_KOMPOSE_DIR}"
+
+    asdf_kompose_download
+  )
+
+  if [ -d "${ASDF_INSTALL_PATH}" ]; then
+    # Remove existing install directory
+    rm -fR "${ASDF_INSTALL_PATH}"
+  fi
+
+  # Create parent directory, if necessary
+  mkdir -p "$(dirname "${ASDF_INSTALL_PATH}/bin")"
+
+  # Finish the installation
+  mv "${ASDF_KOMPOSE_DIR}" "${ASDF_INSTALL_PATH}/bin"
+  chmod 0755 "$ASDF_INSTALL_PATH"/bin/kompose
+}
+
+[ "${ASDF_INSTALL_TYPE}" == 'ref' ] && asdf_kompose_fail "This plugin does not support installing by ref."
+[ -z "${ASDF_INSTALL_VERSION}" ] && asdf_kompose_fail "Unspecified install version."
+[ -z "${ASDF_INSTALL_PATH}" ] && asdf_kompose_fail "No installation directory was provided. Are you running this command via asdf? Try running 'asdf install kompose <version>'"
+[[ -x "$(which wget)" ]] || [[ -x "$(which curl)" ]] || asdf_kompose_fail "Missing one of either of the following dependencies: wget, curl"
+
+asdf_kompose_install "$*"
