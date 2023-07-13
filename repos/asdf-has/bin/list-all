@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+set \
+  -o nounset \
+  -o pipefail \
+  -o errexit
+
+# Thanks https://github.com/pyenv/pyenv/issues/308#issuecomment-71206379
+function sort_versions() {
+  sed 'h; s/[+-]/./g; s/.p\([[:digit:]]\)/.z\1/; s/$/.z/; G; s/\n/ /' |
+    LC_ALL=C sort -t. -k 1,1 -k 2,2n -k 3,3n -k 4,4n -k 5,5n |
+    awk '{print $2}'
+}
+
+list_versions() {
+  git ls-remote --tags --refs https://github.com/kdabir/has/ | grep -o 'refs/tags/.*' | cut -d/ -f3- | sed 's/^v//'
+}
+
+list_versions | sort_versions | tr '\n' ' '
