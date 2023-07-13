@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+fail() {
+  echo -e "\e[31mFail:\e[m $*"
+  exit 1
+}
+
+install_embulk() {
+  local install_type=$1
+  local version=$2
+  local install_path=$3
+
+  if [ "${install_type}" != "version" ]
+  then
+    echo "The asdf-embulk plugin only supports official binary releases from the embulk team."
+    exit 1
+  fi
+
+  local download_url="https://dl.embulk.org/embulk-${version}.jar"
+  local install_bin_path="${install_path}/bin"
+
+  (
+    echo "∗ Downloading and installing embulk..."
+    mkdir -p "${install_bin_path}"
+    curl --location --create-dirs --output "${install_bin_path}/embulk" "${download_url}" || fail "Could not download"
+    chmod +x "${install_bin_path}/embulk" || fail "Could not find embulk binary"
+    echo "The installation was successful!"
+  ) || (
+    rm -rf "$install_path"
+    fail "An error occurred"
+  )
+}
+
+install_embulk "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
