@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+set -eu
+[ "${BASH_VERSINFO[0]}" -ge 3 ] && set -o pipefail
+
+# stolen (with some modifications) from https://stackoverflow.com/a/4025065
+compare_version() {
+  if [[ $1 == $2 ]];
+  then
+    echo '='
+    return 0
+  fi
+  local IFS=.
+  local i ver1=($1) ver2=($2)
+  # fill empty fields in ver1 with zeros
+  for ((i=${#ver1[@]}; i<${#ver2[@]}; i++))
+  do
+    ver1[i]=0
+  done
+  for ((i=0; i<${#ver1[@]}; i++))
+  do
+    if [[ -z ${ver2[i]} ]]
+    then
+      # fill empty fields in ver2 with zeros
+      ver2[i]=0
+    fi
+    if ((10#${ver1[i]} > 10#${ver2[i]}))
+    then
+      echo '>'
+      return 0
+    fi
+    if ((10#${ver1[i]} < 10#${ver2[i]}))
+    then
+      echo '<'
+      return 0
+    fi
+  done
+  echo '='
+  return 0
+}
+
+tmp_download_dir="$(mktemp -dt swi-prolog_build_XXXXXX)"
+source_path="$tmp_download_dir/swi-prolog-$ASDF_INSTALL_TYPE-$ASDF_INSTALL_VERSION.tar.gz"
+
+download_url="http://www.swi-prolog.org/download/stable/src/swipl-$ASDF_INSTALL_VERSION.tar.gz"
+# if devel suffix in version we install from development channel
+if [[ "$ASDF_INSTALL_VERSION" =~ .*-devel ]]; then
+  # remove the -devel suffix from version
+  download_url="http://www.swi-prolog.org/download/devel/src/swipl-${ASDF_INSTALL_VERSION%-devel}.tar.gz"
+fi
+curl -Lo "$source_path" "$download_url"
+
+(
+  tar zxf "$source_path" -C "$ASDF_INSTALL_PATH" --strip-components=1
+  cd "$ASDF_INSTALL_PATH"
+
+  # For versions after 7.7.21 use cmake instead of gnu autoconf tools
+  # Here we compare versions without the '-devel' suffix (if any)
+  if [[ "$(compare_version ${ASDF_INSTALL_VERSION%-devel} 7.7.21)" == '>' ]]; then
+    cmake \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX="$ASDF_INSTALL_PATH" \
+      -DSWIPL_PACKAGES_X=OFF \
+      -DSWIPL_PACKAGES_JAVA=OFF
+  else
+    ./configure \
+        --prefix="$ASDF_INSTALL_PATH" \
+        --with-world \
+        --without-jpl \
+        --without-xpce \
+        --disable-libdirversion
+  fi
+
+  make
+  make install
+)
