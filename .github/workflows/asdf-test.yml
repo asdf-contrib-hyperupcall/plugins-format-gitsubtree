@@ -1,0 +1,28 @@
+name: asdf-test
+
+on:
+  push:
+    branches:
+      - main
+    tags-ignore:
+      - 'v*'
+  pull_request:
+
+jobs:
+  plugin_test:
+    name: asdf plugin test
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: asdf_plugin_test
+        uses: asdf-vm/actions/plugin-test@v2
+        with:
+          command: type kcc-cache
+      - name: asdf_plugin_test
+        uses: asdf-vm/actions/plugin-test@v2
+        with:
+          command: kcc-injector -h
