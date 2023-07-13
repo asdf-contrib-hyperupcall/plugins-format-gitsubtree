@@ -1,0 +1,16 @@
+language: c
+script:
+  - asdf plugin test smlnj . --asdf-plugin-gitref $TRAVIS_BRANCH
+  - shellcheck bin/*
+before_script:
+  - git clone https://github.com/asdf-vm/asdf.git
+  - . asdf/asdf.sh
+  - asdf plugin-add smlnj .git
+os:
+  - linux
+  - osx
+addons:
+  homebrew:
+    packages:
+    - shellcheck
+    update: true
