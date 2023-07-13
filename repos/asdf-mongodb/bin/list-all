@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+versions_list="$(curl -s http://dl.mongodb.org/dl/src/ | awk '!/_rc/ && /http:\/\/downloads.mongodb.org\/src\/mongodb-src-r.*.tar.gz\"/{sub(/^.*mongodb-src-r/,"");sub(/\.tar.gz.*$/,"");print}' | sort)"
+echo $versions_list
