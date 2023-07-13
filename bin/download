@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${ASDF_INSTALL_TYPE}" != "version" ]; then
+  echo "ASDF_INSTALL_TYPE '${ASDF_INSTALL_TYPE}' not supported"
+fi
+
+mkdir -p "${ASDF_DOWNLOAD_PATH}"
+
+curl_cmd=(curl)
+if [ -n "${GITHUB_API_TOKEN:-}" ]; then
+  curl_cmd=("${curl_cmd[*]}" -H "Authorization: Bearer $GITHUB_API_TOKEN")
+fi
+
+"${curl_cmd[@]}" --silent https://api.github.com/repos/google/go-jsonnet/releases |
+  jq ".[] | select(.name == \"v${ASDF_INSTALL_VERSION}\") | .tarball_url" -r |
+  xargs "${curl_cmd[@]}" --location --silent --output \
+    "${ASDF_DOWNLOAD_PATH}/go-jsonnet-v${ASDF_INSTALL_VERSION}.tar.gz"
