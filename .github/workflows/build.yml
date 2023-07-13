@@ -1,0 +1,45 @@
+name: Build
+on:
+  pull_request:
+    paths-ignore:
+      - "**.md"
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+
+jobs:
+  plugin_test:
+    name: asdf plugin test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: asdf_plugin_test
+        uses: asdf-vm/actions/plugin-test@v1.1.0
+        with:
+          command: telepresence version
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          path: telepresence
+      - name: Move telepresence plugin to plugins dir
+        run: |
+          mkdir -p ${HOME}/.asdf/plugins/
+          mv telepresence ${HOME}/.asdf/plugins/
+      - name: Run telepresence specific tests
+        run: |
+          echo "Trying to list all versions of telepresence"
+          asdf list all telepresence
+          echo "Will try to install telepresence 2.4.6"
+          asdf install telepresence 2.4.6
+          echo "Will try to install telepresence 2.4.7"
+          asdf install telepresence 2.4.7
+          echo "Setting telepresence version 2.4.6 as the default value in ~/.tool-versions"
+          echo 'telepresence 2.4.6' > ~/.tool-versions
+          telepresence version 2>&1 | grep '2.4.6'
+          echo "Setting telepresence version 2.4.7 as the default value in ~/.tool-versions"
+          echo 'telepresence 2.4.7' > ~/.tool-versions
+          telepresence version 2>&1 | grep '2.4.7'
