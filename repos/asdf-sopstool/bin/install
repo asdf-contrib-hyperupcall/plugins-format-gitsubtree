@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+[[ -z ${ASDF_INSTALL_TYPE} ]] && echo "ASDF_INSTALL_TYPE is required" && exit 1
+[[ -z ${ASDF_INSTALL_VERSION} ]] && echo "ASDF_INSTALL_VERSION is required" && exit 1
+[[ -z ${ASDF_INSTALL_PATH} ]] && echo "ASDF_INSTALL_PATH is required" && exit 1
+[[ ${ASDF_INSTALL_TYPE} != version ]] && echo "install type '${ASDF_INSTALL_TYPE}' is not supported." && exit 1
+
+arch="$(uname -m)"
+# Remap names to match GitHub releases.
+[[ $arch = "aarch64" ]] && arch="arm64"
+[[ $arch = "x86_64" ]] && arch="amd64"
+
+supported_archs=("amd64" "arm64")
+[[ ! " ${supported_archs[*]} " =~ ${arch} ]] && echo "Sorry, $arch is not supported." && exit 1
+
+platform="$(uname)"
+if [[  ! (${platform} == Linux || ${platform} == Darwin) ]]; then
+  echo "Unsupported platform '${platform}' found. Only Linux and Darwin are supported."
+  exit 1
+fi
+
+tmp_dir=$(mktemp -d -t sopstool_XXXX)
+cleanup() {
+  rm -rf ${tmp_dir}
+}
+trap cleanup INT TERM EXIT
+
+install() {
+  # Note that we're adding back the 'v' tag prefix.
+  local version=v$1
+  local install_path="$2//bin/"
+  local bin_path="${install_path}/sopstool"
+
+  local download_url
+  download_url="https://github.com/ibotta/sopstool/releases/download/${version}/sopstool_${platform}_${arch}.tar.gz"
+
+  mkdir -p "${install_path}"
+
+  cd ${tmp_dir}
+  echo "Downloading sopstool from ${download_url}"
+  curl -sL "$download_url" -o "${tmp_dir}/sopstool_${platform}_${arch}_${version}.tar.gz"
+  tar -xzf ${tmp_dir}/sopstool_${platform}_${arch}_${version}.tar.gz
+  mv ${tmp_dir}/sopstool ${bin_path}
+  chmod +x "${bin_path}"
+}
+
+install ${ASDF_INSTALL_VERSION} ${ASDF_INSTALL_PATH}
