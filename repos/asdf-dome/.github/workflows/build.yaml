@@ -1,0 +1,30 @@
+name: Build
+on:
+  pull_request:
+    paths-ignore:
+      - "**.md"
+  push:
+    paths-ignore:
+      - "**.md"
+  schedule:
+    - cron: "0 0 * * *" # daily at midnight
+
+jobs:
+  plugin_test:
+    name: asdf plugin test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: install dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt update && sudo DEBIAN_FRONTEND=noninteractive apt-get -yq install libpulse-dev
+
+      - name: set the value of GITHUB_API_TOKEN
+        run: echo "GITHUB_API_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
+
+      - name: asdf_plugin_test
+        uses: asdf-vm/actions/plugin-test@v1
+        with:
+          command: dome --help
