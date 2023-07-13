@@ -1,0 +1,47 @@
+language: generic
+
+matrix:
+  include:
+    - os: linux
+      services:
+        - docker
+      script:
+        - |
+          bash -c "while true; do echo \$(date) - travis building ...; sleep 540; done" &
+          export PING_LOOP_PID=$!
+        - |
+          cat <<-EOF | docker run -i ubuntu bash -
+          set -e
+          export DEBIAN_FRONTEND=noninteractive
+          export CABALFLAGS=--ghc-option=-O0
+          echo installing haskell platform
+          apt-get update -qq && apt-get install -qq git curl haskell-platform build-essential
+          git clone https://github.com/asdf-vm/asdf.git
+          . asdf/asdf.sh
+          asdf plugin-test idris https://github.com/vic/asdf-idris.git 'idris --help'
+          EOF
+      after_script:
+        - kill -9 $PING_LOOP_PID
+
+    - os: osx
+      before_script:
+        - git clone https://github.com/asdf-vm/asdf.git
+        - . asdf/asdf.sh
+      script:
+        - asdf plugin-test idris https://github.com/vic/asdf-idris.git 'idris --help'
+
+    - os: osx
+      env:
+        - ASDF_IDRIS_INSTALL=cabal
+        - "CABALFLAGS=--ghc-option=-O0"
+      before_script:
+        - brew install cabal-install
+        - git clone https://github.com/asdf-vm/asdf.git
+        - . asdf/asdf.sh
+      script:
+        - |
+          bash -c "while true; do echo \$(date) - travis building ...; sleep 540; done" &
+          export PING_LOOP_PID=$!
+        - asdf plugin-test idris https://github.com/vic/asdf-idris.git 'idris --help'
+      after_script:
+        - kill -9 $PING_LOOP_PID
