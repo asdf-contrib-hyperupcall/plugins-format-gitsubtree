@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+set -e
+set -o pipefail
+
+GITHUB_API_HOST=${GITHUB_API_HOST:-"https://api.github.com"}
+releases_api_url="$GITHUB_API_HOST/repos/bats-core/bats-core/tags"
+
+function sort_versions() {
+  sed 'h; s/[+-]/./g; s/.p\([[:digit:]]\)/.z\1/; s/$/.z/; G; s/\n/ /' | \
+    LC_ALL=C sort -i -t. -k 1,1 -k 2,2n -k 3,3n -k 4,4n -k 5,5n | awk '{print $2}'
+}
+
+function remove_leading_vs() {
+  sed 's/^v\(.*\)/\1/'
+}
+
+function fetch_versions() {
+  releases_path=$1
+  cmd='curl -s  -H "Accept: application/vnd.github.v3+json"'
+  if [ -n "$GITHUB_API_TOKEN" ]; then
+    cmd="$cmd -H 'Authorization: token $GITHUB_API_TOKEN'"
+  fi
+
+  cmd="$cmd $releases_path"
+
+  local versions
+  versions=$(eval "$cmd")
+
+  versions=$(echo "$versions" | grep -oE 'name": ".{1,15}",' | sed 's/name\": \"//;s/\",//')
+  versions=$(echo "$versions" | remove_leading_vs)
+  versions=$(echo "$versions" | sort_versions)
+  echo "$versions"
+}
+
+function join() {
+  local res=""
+
+  while read -r line; do
+    res="${res} ${line}"
+  done
+
+  echo "$res"
+}
+
+# We're purposefully sorting each list individually instead of the global list because one of the version
+# the old list is returning is "alpha" and we want that version to appear before the newer versions
+all_tags=$(fetch_versions "$releases_api_url" | join)
+
+echo "${all_tags[@]}"
