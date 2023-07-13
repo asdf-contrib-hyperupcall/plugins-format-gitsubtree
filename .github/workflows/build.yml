@@ -1,0 +1,43 @@
+---
+name: Build
+on:
+  schedule:
+    - cron: "0 23 * * 1"
+  push:
+    branches:
+      - master
+  pull_request:
+jobs:
+  plugin_test:
+    name: asdf plugin test
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+        direnv:
+          - 'yes'
+          - 'no'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: asdf_plugin_test
+        uses: asdf-vm/actions/plugin-test@v2
+        with:
+          command: kotlin -help
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '8'
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          path: kotlin
+      - name: Move kotlin plugin to plugins dir
+        run: |
+          mkdir -p ${HOME}/.asdf/plugins/
+          mv kotlin ${HOME}/.asdf/plugins/
+      - name: Run kotlin specific tests
+        env:
+          USE_DIRENV: ${{ matrix.direnv }}
+        run: |-
+          bash ${HOME}/.asdf/plugins/kotlin/scripts/tests.bash
