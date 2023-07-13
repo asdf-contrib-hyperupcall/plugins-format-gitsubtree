@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+set -e
+set -u
+
+platform=$(uname)
+plugdir=$(dirname "$0")
+
+if [ "${platform}" != "Linux" ] && [ "${platform}" != "FreeBSD" ]
+then
+  echo 1>&2 "asdf-chicken: This plugin does not support ${platform}"
+  exit 1
+fi
+
+if [ "${ASDF_INSTALL_TYPE}" != "version" ]
+then
+  echo 1>&2 "asdf-chicken: Unsupported install type: ${ASDF_INSTALL_TYPE}"
+  exit 1
+fi
+
+if [ ! -x "${plugdir}/dust" ]
+then
+  echo 1>&2 "Downloading dust..."
+  curl -#fo "${plugdir}/dust" -L https://foldling.org/dust/dust-x86_64-linux
+  chmod a+x "${plugdir}/dust"
+fi
+
+echo 1>&2 "Installing CHICKEN ${ASDF_INSTALL_VERSION}..."
+rmdir "$ASDF_INSTALL_PATH" || :
+"${plugdir}/dust" install "${ASDF_INSTALL_VERSION}" "${ASDF_INSTALL_PATH}"
+
+echo 1>&2 "CHICKEN ${ASDF_INSTALL_VERSION} installed successfully!"
