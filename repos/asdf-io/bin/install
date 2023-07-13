@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+set -eu
+[ "${BASH_VERSINFO[0]}" -ge 3 ] && set -o pipefail
+
+tmp_download_dir=$(mktemp -dt io_build_XXXXXX)
+source_path="$tmp_download_dir/io-${ASDF_INSTALL_TYPE}-${ASDF_INSTALL_VERSION}"
+
+git clone --recursive --branch "$ASDF_INSTALL_VERSION" --depth 1 https://github.com/IoLanguage/io "$source_path"
+
+(
+    cd "$source_path"
+
+    # Only for versions before 2019.05.22-alpha, since after this version addons were
+    # separated from the main repo and are now installed with eerie
+    if [[ -z "${WITH_IO_ADDONS:-}" ]]; then
+        sed -i.bak "s|add_subdirectory(addons)|#add_subdirectory(addons)|" CMakeLists.txt
+    fi
+
+    cmake -DCMAKE_INSTALL_PREFIX="$ASDF_INSTALL_PATH" -DCMAKE_BUILD_TYPE=release -DWITHOUT_EERIE=1
+    make install
+)
