@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+
+set -e
+set -o pipefail
+
+PLUGIN_NAME='fx'
+DOWNLOAD_BASE_URL="https://github.com/antonmedv/fx/releases/download"
+
+ASDF_INSTALL_TYPE=${ASDF_INSTALL_TYPE:-version  }
+TMPDIR=${TMPDIR:-/tmp}
+[ -n "$ASDF_INSTALL_VERSION" ] || (>&2 echo 'Missing ASDF_INSTALL_VERSION' && exit 1)
+[ -n "$ASDF_INSTALL_PATH" ] || (>&2 echo 'Missing ASDF_INSTALL_PATH' && exit 1)
+
+install_fx() {
+  # local install_type=$1       # not currently used
+  local version=$2
+  local install_path=$3
+  local bin_install_path="$install_path/bin"
+  local download_url; download_url="$(get_download_url "$version" "$PLUGIN_NAME")"
+
+  mkdir -p "${bin_install_path}"
+
+  echo "Downloading ${PLUGIN_NAME} from ${download_url}"
+  if [[ $(semver_compare "$version" '21.0.0') == -1 ]]; then
+    curl -sSL "$download_url" -o "${install_path}/${PLUGIN_NAME}.zip"
+    unzip -d "${install_path}" "${install_path}/${PLUGIN_NAME}.zip"
+    mv "${install_path}/${PLUGIN_NAME}-$(get_platform "$version")" "${bin_install_path}/${PLUGIN_NAME}"
+  else
+    curl -sSL "$download_url" -o "${bin_install_path}/${PLUGIN_NAME}"
+    chmod 755 "${bin_install_path}/${PLUGIN_NAME}"
+  fi
+}
+
+# Function to compare versions in a semver compatible way
+# given args A and B, return 0 if A=B, -1 if A<B and 1 if A>B
+function semver_compare() {
+  if [ "$1" = "$2" ]; then
+    # A = B
+    echo 0
+  else
+    ordered=$(printf '%s\n' "$@" | sort -V | head -n 1)
+
+    if [ "$ordered" = "$1" ]; then
+      # A < B
+      echo -1
+    else
+      # A > B
+      echo 1
+    fi
+  fi
+}
+
+get_arch() {
+  local arch; arch=$(uname -m | tr '[:upper:]' '[:lower:]')
+  case ${arch} in
+  x86_64)
+    arch='amd64'
+    ;;
+  esac
+  echo "${arch}"
+}
+
+get_platform() {
+  local version="$1"
+  local plat; plat=$(uname | tr '[:upper:]' '[:lower:]')
+  case ${plat} in
+  darwin)
+    if [[ $(semver_compare "$version" '21.0.0') == -1 ]]; then
+      plat='macos'
+    fi
+    ;;
+  esac
+
+  echo "${plat}"
+}
+
+get_download_url() {
+  local version="$1"
+  local prog="$2"
+  local arch; arch="$(get_arch)"
+  local platform; platform="$(get_platform "$version")"
+
+  if [[ $(semver_compare "$version" '21.0.0') == -1 ]]; then
+    echo "${DOWNLOAD_BASE_URL}/${version}/${prog}-${platform}.zip"
+  else
+    echo "${DOWNLOAD_BASE_URL}/${version}/${prog}_${platform}_$(get_arch)"
+ fi
+}
+
+if [[ -z "$SHELLSPEC_LIB" ]]; then
+  install_fx "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
+fi
