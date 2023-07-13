@@ -1,0 +1,104 @@
+name: Build
+
+on:
+  pull_request:
+    paths-ignore:
+      - "**.md"
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+  schedule:
+    - cron: "0 0 * * 0" # weekly at midnight on sundays (ish)
+
+env:
+  ASDF_CONCURRENCY: 2
+
+jobs:
+  build_from_installers:
+    name: asdf-awscli plugin test using prebuilt installers
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          # - windows-latest In theory this should work, but ASDF requires bash and
+        python-version:
+          - "3.8"
+          - "3.11"
+        cli-version:
+          - "latest:1"
+          - "latest:2"
+        coreutils:
+          - default
+          - latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Setup homebrew if using latest coreutils
+        if: matrix.coreutils == 'latest'
+        uses: Homebrew/actions/setup-homebrew@master
+        
+      - name: Try installing latest GNU coreutils
+        if: matrix.coreutils == 'latest'
+        run: |
+          brew update
+          brew install coreutils
+          echo "$(brew --prefix)/opt/coreutils/libexec/gnubin" >> "${GITHUB_PATH}"
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Check paths and coreutils version if using latest
+        if: matrix.coreutils == 'latest'
+        run: |
+          which cp
+          cp --version
+          which python
+          python --version
+          "${pythonLocation}/bin/python" --version
+          echo "${GITHUB_PATH}"
+          echo "${PATH}"
+
+      - name: asdf_plugin_test
+        uses: asdf-vm/actions/plugin-test@v2
+        with:
+          command: aws --version
+          version: ${{ matrix.cli-version }}
+
+  build_from_source:
+    name: asdf-awscli plugin test using source
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+        python-version:
+          - "3.8"
+          - "3.11"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install asdf-awscli
+        uses: asdf-vm/actions/plugins-add@v2
+        with:
+          tool_versions: |
+            # tools won't be installed by this action, only plugins
+            awscli
+
+      - name: Retrieve latest version
+        run: |
+          echo "cli-version=ref:$(asdf latest awscli 2)" >> "${GITHUB_ENV}"
+
+      - name: asdf_plugin_test
+        uses: asdf-vm/actions/plugin-test@v2
+        with:
+          skip_install: true
+          command: aws --version
+          version: ${{ env.cli-version }}
