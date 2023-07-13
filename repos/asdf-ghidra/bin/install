@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+fail() {
+  echo -e "\e[31mFail:\e[m $*"
+  exit 1
+}
+
+install_ghidra() {
+  local install_type=$1
+  local version=$2
+  local install_path=$3
+
+  if [ "$install_type" != "version" ]; then
+    fail "asdf-ghidra supports release installs only"
+  fi
+
+  local download_url="https://ghidra-sre.org/"$(curl --silent --location https://ghidra-sre.org/releaseNotes_9.2.2.html | grep -E -o "ghidra_${version}.*?\.zip" | cut -d ">" -f2 | uniq)
+  local file_name="ghidra-${version}.zip"
+  local tmp_download_dir
+  tmp_download_dir=$(mktemp -d -t ghidra_tmp_XXXXXX)
+  local source_path="${tmp_download_dir}/${file_name}"
+
+  (
+    echo "∗ Downloading Ghidra..."
+    curl --silent --location --output "$source_path" -C - "$download_url" || fail "Could not download Ghidra $version source"
+    unzip "$source_path" -d "$install_path"
+    cp -R "${install_path}/ghidra_${version}_PUBLIC/"* "${install_path}/"
+    rm -R "${install_path}/ghidra_${version}_PUBLIC/"*
+    echo "The installation was successful!"
+  ) || (
+    rm -rf "$install_path"
+    fail "An error occurred"
+  )
+  rm -rf "$tmp_download_dir"
+}
+
+install_ghidra "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
