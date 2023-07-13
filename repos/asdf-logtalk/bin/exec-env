@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+export LOGTALKHOME=$install_path
+export MANPATH=$LOGTALKHOME/man:$MANPATH
