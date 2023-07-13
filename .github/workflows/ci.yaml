@@ -1,0 +1,24 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  plugin_test:
+    env:
+      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: asdf_plugin_test
+        uses: asdf-vm/actions/plugin-test@v1
+        with:
+          command: ko version
+        env:
+          GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
