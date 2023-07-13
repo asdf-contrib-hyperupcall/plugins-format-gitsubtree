@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# shellcheck source=lib/utils.bash
+source "$(dirname "$0")/../lib/utils.bash"
+
+mkdir -p "$ASDF_DOWNLOAD_PATH"
+
+release_file="$ASDF_DOWNLOAD_PATH/$TOOL_NAME"
+
+# Download binary file to the download directory
+download_release "$ASDF_INSTALL_VERSION" "$release_file"
