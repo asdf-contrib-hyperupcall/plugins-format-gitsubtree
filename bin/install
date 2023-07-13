@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+#
+# Copyright 2020 Junji Takakura
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+set -eo pipefail
+
+fail() {
+  echo -e "\e[31mFail:\e[m $*"
+  exit 1
+}
+
+install_digdag() {
+  local install_type=$1
+  local version=$2
+  local install_path=$3
+
+  if [ "$install_type" != "version" ]; then
+    fail "asdf-digdag supports release installs only"
+  fi
+
+  local download_url="https://dl.digdag.io/digdag-${version}"
+  local install_bin_path="${install_path}/bin"
+
+  (
+    echo "∗ Downloading and installing digdag..."
+    mkdir -p "${install_bin_path}"
+    curl --silent --location --create-dirs --output "${install_bin_path}/digdag" "${download_url}" || fail "Could not download"
+    chmod +x "${install_bin_path}/digdag" || fail "Could not find digdag binary"
+    echo "The installation was successful!"
+  ) || (
+    rm -rf "$install_path"
+    fail "An error occurred"
+  )
+}
+
+install_digdag "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
