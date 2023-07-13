@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+: "${ASDF_INSTALL_PATH:?"Missing ASDF_INSTALL_PATH"}"
+: "${ASDF_DOWNLOAD_PATH:?"Missing ASDF_DOWNLOAD_PATH"}"
+: "${ASDF_INSTALL_TYPE:?"asdf-usql supports release installs only"}"
+: "${ASDF_INSTALL_VERSION:?"Missing ASDF_INSTALL_VERSION"}"
+
+# shellcheck source=SCRIPTDIR/lib
+source "$(dirname "$0")/lib"
+
+install() {
+  if [ ! -d "$ASDF_DOWNLOAD_PATH" ]; then
+    # shellcheck source=SCRIPTDIR/download
+    source "$(dirname "$0")/download" || (
+      echo "Downloading usql $ASDF_INSTALL_VERSION failed" 1>&2
+      exit 1
+    )
+  fi
+
+  # The static binary is named usql_static, not usql, let's fix that
+  if [ -f "$ASDF_DOWNLOAD_PATH/bin/usql_static" ]; then
+    mv "$ASDF_DOWNLOAD_PATH/bin/usql_static" "$ASDF_DOWNLOAD_PATH/bin/usql"
+  fi
+
+  mv "$ASDF_DOWNLOAD_PATH/bin" "$ASDF_INSTALL_PATH" &&
+    chmod -R +x "$ASDF_INSTALL_PATH/bin" &&
+    find "$ASDF_DOWNLOAD_PATH" -delete
+
+  if [ -x "$ASDF_INSTALL_PATH/bin/usql" ]; then
+    echo "usql $ASDF_INSTALL_VERSION has been installed"
+    exit 0
+  else
+    echo "An error ocurred while installing usql $ASDF_INSTALL_VERSION" 1>&2
+    find "$ASDF_INSTALL_PATH" -delete
+    exit 1
+  fi
+}
+
+install
