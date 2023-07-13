@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+
+set -e
+set -o pipefail
+
+install_gleam() {
+  local install_type="$1"
+  local version="$2"
+  local install_path="$3"
+
+  if [ "$install_type" = "version" ] && ! (has_binary_release $version); then
+    echo "ERROR: Gleam version $version has no binary release."
+    echo "Try installing from source. You will need a working rust compiler."
+    exit 1
+  fi
+
+  local tmp_dir=$(mktemp -d -t gleam_build_XXXXXX)
+
+  (
+    if test "$install_type" = "version"; then
+      local release_file="$tmp_dir/gleam-$install_type-$version.tar.gz"
+      local release_url=$(get_download_url $version)
+      download_file "$release_file" "$release_url"
+      mkdir -p $install_path/bin
+      tar -xf "$release_file" -C $install_path/bin
+    else
+      # install from source
+      git clone --depth 1 --branch "$version" "https://github.com/gleam-lang/gleam" "$tmp_dir/src"
+      cargo install --path "$tmp_dir/src/compiler-cli" --root "$install_path"
+    fi
+  ) || rm -rf $install_path
+
+  rm -rf $tmp_dir
+}
+
+has_binary_release() {
+  local version="$1"
+  version_gt "$version" "0.1"
+}
+
+uses_llvm_triplets() {
+  local version="$1"
+  test "$version" = "nightly" || version_gt "$version" "0.22.1"
+}
+
+# from https://stackoverflow.com/questions/16989598/bash-comparing-version-numbers/24067243
+version_gt() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1"; }
+
+get_variant() {
+  local version="$1"
+  if uses_llvm_triplets "$version"; then
+    get_llvm_triplet_variant "$version"
+  else
+    get_legacy_variant "$version"
+  fi
+}
+
+get_llvm_triplet_variant() {
+  local version="$1"
+  case "$(uname -s)" in
+    Linux)
+      case "$(uname -m)" in
+        x86_64) echo x86_64-unknown-linux-musl ;;
+        aarch64 | arm64) echo aarch64-unknown-linux-musl ;;
+        *) fail "$(uname -m) is not supported on linux" ;;
+      esac
+      ;;
+    Darwin)
+      case "$(uname -m)" in
+        x86_64) echo x86_64-apple-darwin ;;
+        arm64) echo aarch64-apple-darwin ;;
+        *) fail "$(uname -m) is not supported on macos" ;;
+      esac
+      ;;
+    *) fail "$(uname -s) is not supported" ;;
+  esac
+}
+
+get_legacy_variant() {
+  local version="$1"
+  case "$(uname -s)" in
+    Linux)
+      case "$(uname -m)" in
+        x86_64) echo linux-amd64 ;;
+        *) fail "$(uname -m) is not supported on linux" ;;
+      esac
+      ;;
+    Darwin)
+      case "$(uname -m)" in
+        x86_64) echo macos ;;
+        arm64) echo macos-arm64 ;;
+        *) fail "$(uname -m) is not supported on macos" ;;
+      esac
+      ;;
+    *) fail "$(uname -s) is not supported" ;;
+  esac
+}
+
+download_file() {
+  local download_path="$1"
+  local download_url="$2"
+  if test "302" != $(curl -qsI -o /dev/null -w "%{http_code}" "$download_url"); then
+    echo "Could not find archive at URL $download_url"
+    exit 2
+  fi
+  curl -Lo "$download_path" "$download_url"
+}
+
+get_download_url() {
+  local version=$1
+  local variant=$(get_variant $version)
+  case $version in
+    nightly)
+      echo "https://github.com/gleam-lang/gleam/releases/download/nightly/gleam-nightly-${variant}.tar.gz"
+      ;;
+    *)
+      echo "https://github.com/gleam-lang/gleam/releases/download/v${version}/gleam-v${version}-${variant}.tar.gz"
+      ;;
+  esac
+}
+
+install_gleam $ASDF_INSTALL_TYPE $ASDF_INSTALL_VERSION $ASDF_INSTALL_PATH
