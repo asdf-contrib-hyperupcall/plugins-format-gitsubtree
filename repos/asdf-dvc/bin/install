@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+source "$(dirname "$0")/../lib/lib.sh"
+
+should_clear=false
+
+if [[ -z ${ASDF_DOWNLOAD_PATH} ]]; then
+  export ASDF_DOWNLOAD_PATH=$(mktemp)
+  should_clear=true
+  ./download
+fi
+
+install "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
+
+if $should_clear; then 
+  unset ASDF_DOWNLOAD_PATH
+fi
