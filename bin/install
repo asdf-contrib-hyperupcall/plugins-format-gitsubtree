@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+test -n "$ASDF_INSTALL_VERSION" || {
+	echo 'Missing ASDF_INSTALL_VERSION'
+	exit 1
+}
+
+test -n "$ASDF_INSTALL_PATH" || {
+	echo 'Missing ASDF_INSTALL_PATH'
+	exit 1
+}
+
+_get_arch() {
+  local arch; arch=$(uname -m)
+  case $arch in
+    armv*) arch="armv6hf";;
+    aarch64) arch="aarch64";;
+    x86_64) arch="x86_64";;
+  esac
+  echo "$arch"
+}
+
+_get_platform() {
+	uname | tr '[:upper:]' '[:lower:]'
+}
+
+_get_download_url() {
+	local -r version="$1"
+	local -r platform="$2"
+	local -r arch="$3"
+
+	echo "https://github.com/koalaman/shellcheck/releases/download/v${version}/shellcheck-v${version}.${platform}.${arch}.tar.xz"
+}
+
+install() {
+	local -r version=$1
+	local -r install_path=$2
+
+	local -r bin_install_path="${install_path}/bin"
+	local -r bin_path="${bin_install_path}/shellcheck"
+
+	local -r platform="$(_get_platform)"
+	local arch; arch="$(_get_arch)"
+	# Currently there is no darwin/arm support: https://github.com/koalaman/shellcheck/releases
+	# If/when it is added, remove the folling line and make arch a read-only variable.
+	test "$platform" == "darwin" && arch="x86_64"
+
+	local -r download_url="$(_get_download_url "${version}" "${platform}" "${arch}")"
+
+	mkdir -p "${bin_install_path}"
+
+	echo "Downloading shellcheck from ${download_url} to ${bin_install_path}"
+	# curl to tar, without files on disk
+	curl -Ls "${download_url}" | tar -xJv --strip-components=1 -C "${bin_install_path}" "shellcheck-v${version}/shellcheck"
+	chmod +x "${bin_path}"
+}
+
+install "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
