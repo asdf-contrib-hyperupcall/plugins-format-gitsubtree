@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+
+set \
+  -o nounset \
+  -o pipefail \
+  -o errexit
+
+# required environment variables
+: "${ASDF_INSTALL_TYPE?}"
+: "${ASDF_INSTALL_VERSION?}"
+: "${ASDF_INSTALL_PATH?}"
+
+# make a temporary download directory with a cleanup hook
+TMP_DOWNLOAD_DIR="$(mktemp -d -t "asdf_marpcli_XXXXXX")"
+readonly TMP_DOWNLOAD_DIR
+
+trap 'rm -rf "${TMP_DOWNLOAD_DIR?}"' EXIT
+
+install () {
+  # local -r install_type="$1"
+  local -r version="$2"
+  local -r install_path="$3"
+
+  local -r bin_install_path="${install_path}/bin"
+
+  local -r download_url="$(get_download_url "${version}")"
+  local -r filename=$(basename "${download_url}")
+  
+  echo "Downloading version ${version} of marp-cli"
+  if curl -sfL -o "${TMP_DOWNLOAD_DIR}/${filename}" "${download_url}"; then
+
+    echo "Extracting version ${version} of marp-cli"
+    case "${filename##*.}" in 
+    gz)
+      tar zxf "${TMP_DOWNLOAD_DIR}/${filename}" -C "${TMP_DOWNLOAD_DIR}"
+    esac
+
+    echo "Cleaning marp-cli previous binaries"
+    rm -rf "${bin_install_path?}"
+
+    echo "Creating marp-cli bin directory"
+    mkdir -p "${bin_install_path}"
+
+    local f
+    for f in "${TMP_DOWNLOAD_DIR}"/*; do
+      if [[ -f "${f}" ]] \
+      && [[ -x "${f}" ]]; then
+        cp "${f}" "${bin_install_path}"
+      fi
+    done
+    echo "Done"
+  else
+    echo "Error: marp-cli version ${version} not found" >&2
+    exit 1
+  fi
+}
+
+fail() {
+  echo -e "\e[31mFail:\e[m $*"
+  exit 1
+}
+
+get_filename () {
+  local -r version="$1"
+  local -r ext="${2:-.zip}"
+  local -r arch="$(get_arch)"
+
+  echo "${version}/dist_${arch}${ext}"
+}
+
+get_download_url () {
+  local -r version="$1"
+
+  case "$(uname -m)" in
+    x86_64*) 
+        case "$OSTYPE" in
+            darwin*) 
+                echo https://github.com/marp-team/marp-cli/releases/download/v"${version}"/marp-cli-v"${version}"-mac.tar.gz 
+            ;;
+            linux*)
+                echo https://github.com/marp-team/marp-cli/releases/download/v"${version}"/marp-cli-v"${version}"-linux.tar.gz 
+            ;;
+            *) fail "Unsupported platform" ;;
+        esac
+    ;;
+    *) fail "Unsupported architecture" ;;
+  esac
+  
+}
+
+install "${ASDF_INSTALL_TYPE}" "${ASDF_INSTALL_VERSION}" "${ASDF_INSTALL_PATH}"
