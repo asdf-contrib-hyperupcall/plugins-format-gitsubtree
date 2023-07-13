@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+set -x
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+. ${SCRIPT_DIR}/common.sh
+
+get_mysql_records | tr , '\n' | awk -F\" '/"version"/{ print $4 }' | sort | tr '\n' ' '
