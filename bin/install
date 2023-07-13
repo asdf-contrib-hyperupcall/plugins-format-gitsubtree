@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+
+function download_url() {
+  local version=$1
+  echo "https://repo1.maven.org/maven2/org/gradle/profiler/gradle-profiler/${version}/gradle-profiler-${version}.zip"
+}
+
+fail() {
+  echo "asdf-gradle-profiler error: " "$@" >&2
+  exit 1
+}
+
+function validateArchive()
+{
+  local archive_file_name="${1}"
+  local authentic_checksum="${2}"
+
+  if command -v sha512sum >/dev/null 2>&1; then
+    sha512sum -c <<<"$authentic_checksum  $archive_file_name"
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 512 -c <<<"$authentic_checksum  $archive_file_name"
+  else
+    echo "Neither \`sha512sum\` nor \`shasum\` is available. Skipping archive verification." >&2
+    return 0
+  fi
+}
+
+function install()
+{
+  local install_type=$1
+  local version=$2
+  local install_path=$3
+
+  if [ "version" != "${install_type}" ]; then
+    echo "The asdf-gradle-profiler plugin only supports installing official" >&2
+    echo "binary releases as built by the Gradle team." >&2
+    echo "If you want to install another version from source, see:" >&2
+    echo "https://github.com/gradle/jgradle-profiler/" >&2
+    exit 1
+  fi
+
+  local tmp_download_dir
+  tmp_download_dir=$(mktemp -d -t gradle-profiler_XXXXXXX)
+
+  # running this in a subshell
+  # we don't want to disturb current working dir
+  (
+    set -e
+
+    local archive_url
+    archive_url="$(download_url "$version")"
+    local checksum_url
+    checksum_url="$(download_url "$version").sha512"
+    local archive_path="$tmp_download_dir/gradle-profiler-${version}.zip"
+    local checksum_path="$tmp_download_dir/gradle-profiler-${version}.zip.sha512"
+
+    curl -Lo "$archive_path" "$archive_url" || fail "Could not download gradle-profiler ${version} archive"
+    curl -Lo "$checksum_path" "$checksum_url" || fail "Could not download gradle-profiler ${version} checksum"
+
+    authentic_checksum=$(cat "$checksum_path")
+    if ! validateArchive "$archive_path" "$authentic_checksum"; then
+      fail "Downloaded archive failed verification with checksum. Exiting."
+    fi
+
+    unzip "${archive_path}" -d "${tmp_download_dir}"
+    mv "${tmp_download_dir}/gradle-profiler-${ASDF_INSTALL_VERSION}"/* "$install_path"
+  ) || (rm -rf "$install_path" "$tmp_download_dir"; exit 1)
+
+  rm -rf "$tmp_download_dir"
+}
+
+install "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
