@@ -1,0 +1,13 @@
+language: c
+os:
+  - linux
+  - osx
+before_script:
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; brew install gimme; fi
+  - eval "$(gimme $(grep golang .tool-versions | cut -d " " -f 2))"
+  - git clone https://github.com/asdf-vm/asdf.git asdf
+  - . asdf/asdf.sh
+script:
+  - asdf plugin-add ksonnet ./
+  - asdf list-all ksonnet
+  - asdf plugin-test ksonnet ./ 'ks version'
