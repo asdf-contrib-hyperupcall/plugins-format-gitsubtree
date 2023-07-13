@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+fail() {
+  echo -e "\e[31mFail:\e[m $*"
+  exit 1
+}
+
+install_haxe() {
+  local install_type=$1
+  local version=$2
+  local install_path=$3
+
+  if [ "$install_type" != "version" ]; then
+    fail "asdf-haxe supports release installs only"
+  fi
+
+  local architecture
+
+  case "$(uname -m)" in
+    x86_64 | x86-64 | x64 | amd64) architecture="64" ;;
+    *) fail "Unsupported architecture" ;;
+  esac
+
+  case "$OSTYPE" in
+    darwin*) platform="osx" ;;
+    linux*) platform="linux${architecture}" ;;
+    *) fail "Unsupported platform" ;;
+  esac
+
+  local download_url="https://github.com/HaxeFoundation/haxe/releases/download/${version}/haxe-${version}-${platform}.tar.gz"
+  local source_path="${install_path}/haxe-${version}.tar.gz"
+  local distination_path="${install_path}/bin"
+
+  (
+    echo "∗ Downloading Haxe source..."
+    curl --silent --location --output "$source_path" -C - "$download_url" || fail "Could not download Haxe $version source"
+    mkdir -p "$distination_path"
+    tar -zxf "$source_path" -C "$distination_path" --strip-components=1
+    rm "$source_path"
+    echo "The installation was successful!"
+    echo
+    echo "If you get dylib errors when running haxelib be sure to read https://github.com/asdf-community/asdf-haxe#troubleshooting"
+  ) || (
+    rm -rf "$install_path"
+    fail "An error occurred"
+  )
+}
+
+install_haxe "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
