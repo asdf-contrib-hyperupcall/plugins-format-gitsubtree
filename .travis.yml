@@ -1,0 +1,16 @@
+language:
+  - java
+script:
+  - asdf plugin-add sbt https://github.com/bram2000/asdf-sbt
+  - asdf list-all sbt
+  - LATEST_VERSION=`asdf list-all sbt | tail -1`
+  - asdf install sbt $LATEST_VERSION
+  - asdf global sbt $LATEST_VERSION
+  - asdf current sbt
+  - test `asdf current sbt | cut -d' ' -f14` = $LATEST_VERSION
+  - asdf plugin-test sbt https://github.com/bram2000/asdf-sbt.git
+before_script:
+  - git clone https://github.com/asdf-vm/asdf.git
+  - . asdf/asdf.sh
+os:
+  - linux
