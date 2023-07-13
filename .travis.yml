@@ -1,0 +1,7 @@
+os: linux
+language: c
+before_script:
+  - git clone https://github.com/asdf-vm/asdf.git asdf
+  - . asdf/asdf.sh
+script:
+  - asdf plugin-test chicken $TRAVIS_BUILD_DIR 'chicken -version'
