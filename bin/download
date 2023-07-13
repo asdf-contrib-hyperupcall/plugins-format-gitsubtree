@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+current_script_path=${BASH_SOURCE[0]}
+plugin_dir=$(dirname "$(dirname "$current_script_path")")
+
+# shellcheck source=../lib/utils.bash
+source "${plugin_dir}/lib/utils.bash"
+
+if ! is_supporting_zigmod_version; then
+	fail "Supporting zigmod versions are v51 or higher. But you specified '$ASDF_INSTALL_VERSION'"
+fi
+
+mkdir -p "$ASDF_DOWNLOAD_PATH"
+
+release_file="$ASDF_DOWNLOAD_PATH/$TOOL_NAME-$ASDF_INSTALL_VERSION"
+
+# `zigmod` uploads non archived binary files to the GitHub releases.
+download_release "$ASDF_INSTALL_VERSION" "$release_file"
+chmod 755 "$release_file"
+mv "$release_file" "$ASDF_DOWNLOAD_PATH/zigmod"
