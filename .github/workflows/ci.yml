@@ -1,0 +1,40 @@
+name: Build
+
+on:
+  pull_request:
+    paths-ignore:
+      - "**.md"
+  push:
+    paths-ignore:
+      - "**.md"
+    branches:
+      - master
+
+jobs:
+  plugin-test:
+    continue-on-error: ${{ matrix.experimental }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            experimental: true
+          - os: ubuntu-latest
+            experimental: false
+
+    steps:
+      - name: Test plugin
+        uses: asdf-vm/actions/plugin-test@v1
+        with:
+          command: "shfmt --version"
+        env:
+          GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sh-checker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v1
+      - name: Run the sh-checker
+        uses: luizm/action-sh-checker@master
