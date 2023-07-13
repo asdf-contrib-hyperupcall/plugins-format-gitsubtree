@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+current_script_path=${BASH_SOURCE[0]}
+plugin_dir=$(dirname "$(dirname "$current_script_path")")
+
+# shellcheck source=../lib/utils.bash
+source "${plugin_dir}/lib/utils.bash"
+
+mkdir -p "$ASDF_DOWNLOAD_PATH"
+
+release_file="$ASDF_DOWNLOAD_PATH/$TOOL_NAME-$ASDF_INSTALL_VERSION.tar.gz"
+
+# Download tar.gz file to the download directory.
+download_release "$ASDF_INSTALL_VERSION" "$release_file"
+
+tar_opts=""
+# The release tarballs for Swag v1.7.1 have a top-level directory, unlike those
+# for any other version.
+if [ "$(compare_versions "$ASDF_INSTALL_VERSION" "1.7.1")" -eq 0 ]; then
+  tar_opts="--strip-components=1"
+fi
+
+# Extract contents of tar.gz file into the download directory.
+tar -xzf "$release_file" -C "$ASDF_DOWNLOAD_PATH" $tar_opts || fail "Could not extract $release_file"
+
+# Remove the tar.gz file since we don't need to keep it.
+rm "$release_file"
