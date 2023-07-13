@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+current_script_path=${BASH_SOURCE[0]}
+plugin_dir=$(dirname "$(dirname "$current_script_path")")
+
+# shellcheck source=../lib/utils.bash
+source "${plugin_dir}/lib/utils.bash"
+
+mkdir -p "$ASDF_DOWNLOAD_PATH"
+
+# Adapt this to proper extension and adapt extracting strategy.
+release_file="$ASDF_DOWNLOAD_PATH/$TOOL_NAME"
+
+# Download binary file to the download directory
+get_arch() {
+  local arch
+  arch=$(uname -m | tr '[:upper:]' '[:lower:]')
+  case ${arch} in
+  x86_64)
+    arch='amd64'
+    ;;
+  esac
+
+  echo "${arch}"
+}
+
+get_platform() {
+  plat=$(uname | tr '[:upper:]' '[:lower:]')
+
+  echo "${plat}"
+}
+
+arch="$(get_arch)"
+platform="$(get_platform)"
+download_release "$ASDF_INSTALL_VERSION" "$release_file" "$arch" "$platform"
+
+# Add executive authority to the download file
+chmod +x "$release_file" || fail "Could not extract $release_file"
