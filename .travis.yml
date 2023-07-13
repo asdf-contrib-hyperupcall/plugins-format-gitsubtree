@@ -1,0 +1,8 @@
+language: c
+script: asdf plugin-test dep $TRAVIS_BUILD_DIR 'dep version'
+before_script:
+- git clone https://github.com/asdf-vm/asdf.git
+- ". asdf/asdf.sh"
+os:
+- linux
+- osx
