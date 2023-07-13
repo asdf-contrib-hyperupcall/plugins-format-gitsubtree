@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# [ -z "${ASDF_INSTALL_TYPE+x}" ] && echo "ASDF_INSTALL_TYPE is required" && exit 1
+# [ -z "${ASDF_INSTALL_VERSION+x}" ] && echo "ASDF_INSTALL_VERSION is required" && exit 1
+# [ -z "${ASDF_INSTALL_PATH+x}" ] && echo "ASDF_INSTALL_PATH is required" && exit 1
+
+install() {
+  local install_type=$1
+  [ "$install_type" != "version" ] && echo "intall type, $install_type, is not supported" && exit 1
+
+  local version=$2
+  local install_path=$3
+
+  local download_url="https://github.com/npryce/adr-tools/archive/${version}.tar.gz"
+
+  echo "-- Downloading adr-tools from ${download_url}"
+  curl -sL "$download_url" | tar xz
+  mv adr-tools-${version}/src $install_path/bin
+  rm -rf adr-tools-${version}
+}
+
+install "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH" 
