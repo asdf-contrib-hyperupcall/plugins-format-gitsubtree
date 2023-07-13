@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+get_github_org() {
+  echo "xo"
+}
+
+get_github_repo() {
+  echo "usql"
+}
+
+get_github_auth_header() {
+  # shellcheck disable=SC2154
+  if [ -n "$GITHUB_API_TOKEN" ]; then
+    echo "Authorization: token $GITHUB_API_TOKEN"
+  else
+    echo "AuthorizeMy: butt"
+  fi
+}
+
+get_release_os() {
+  uname -s | tr '[:upper:]' '[:lower:]'
+}
+
+get_release_arch() {
+  case "$(uname -m)" in
+    "x86_64")
+      echo "amd64"
+      ;;
+    *)
+      "Unsupported CPU architecture: $(uname -m)" 1>&2
+      exit 1
+      ;;
+  esac
+}
+
+get_release_version() {
+  # shellcheck disable=SC2154
+  echo "$ASDF_INSTALL_VERSION"
+}
+
+get_release_filename() {
+  _flavor="usql"
+  # On linux, use the static binary to avoid problems with libuci
+  if [ "$(get_release_os)" == "linux" ]; then
+    _flavor+="_static"
+  fi
+  echo "${_flavor}-$(get_release_version)-$(get_release_os)-$(get_release_arch).tar.bz2"
+}
+
+get_download_url() {
+  echo "https://github.com/$(get_github_org)/$(get_github_repo)/releases/download/v$(get_release_version)/$(get_release_filename)"
+}
+
+# stolen from https://github.com/rbenv/ruby-build/pull/631/files#diff-fdcfb8a18714b33b07529b7d02b54f1dR942
+sort_versions() {
+  sed 'h; s/[+-]/./g; s/.p\([[:digit:]]\)/.z\1/; s/$/.z/; G; s/\n/ /' |
+    LC_ALL=C sort -t. -k 1,1 -k 2,2n -k 3,3n -k 4,4n -k 5,5n | awk '{print $2}'
+}
