@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+
+# redsymbol.net/articles/unofficial-bash-strict-mode/
+set -o nounset -o pipefail -o errexit
+IFS=$'\n\t'
+
+get_tmpdir() {
+  local tmpdir
+
+  set +o nounset
+  if [ "$TMPDIR" = "" ]; then
+    tmpdir="$(mktemp -d -t bazel_build_XXXXXX)"
+  else
+    tmpdir="$TMPDIR"
+  fi
+  set -o nounset
+
+  echo "$tmpdir"
+}
+
+get_platform() {
+  uname | tr '[:upper:]' '[:lower:]'
+}
+
+get_arch() {
+  uname -m
+}
+
+get_installer_name() {
+  local version="$1"
+  local platform="$(get_platform)"
+  local arch="$(get_arch)"
+  echo "bazel-$version-installer-$platform-$arch.sh"
+}
+
+get_installer_url() {
+  local version="$1"
+  local installer_name="$(get_installer_name $version)"
+  local url_base="https://github.com/bazelbuild/bazel/releases/download"
+  echo "$url_base/$version/$installer_name"
+}
+
+check_install_type() {
+  local install_type="$1"
+  if [ "$install_type" != "version" ]; then
+    echo -e "\nThe asdf-bazel plugin only supports installing official, tagged"
+    echo "releases as released by the Bezel team on Github:"
+    echo "https://github.com/bazelbuild/bazel/releases"
+    echo -e "\nIf you wish to install another version from source, see: "
+    echo "https://docs.bazel.build/versions/master/install.html"
+    exit 1
+  fi
+}
+
+install_bazel() {
+  local install_type="$1"
+  local version="$2"
+  local install_path="$3"
+  local tmpdir="$(get_tmpdir)"
+  local installer_name="$(get_installer_name $version)"
+  local installer_path="$tmpdir/$installer_name"
+  local installer_url="$(get_installer_url $version)"
+
+  check_install_type "$install_type"
+
+  curl -L -s -o "$installer_path" "$installer_url"
+  chmod u+x "$installer_path"
+
+  "$installer_path" --prefix="$install_path"
+}
+
+install_bazel "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
