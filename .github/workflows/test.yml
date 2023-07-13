@@ -1,0 +1,28 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+    branches:
+      - main
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Shellcheck
+        uses: ludeeus/action-shellcheck@master
+
+      - name: Install shfmt
+        uses: mfinelli/setup-shfmt@master
+
+      - name: Run shfmt
+        run: shfmt -d bin/*
