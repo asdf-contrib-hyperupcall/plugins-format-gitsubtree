@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+download() {
+  local install_type=$1
+  local version=$2
+  local download_path=$3
+
+  local tmp_download_dir
+  tmp_download_dir=$(mktemp -d -t btrace_XXXXXXX)
+
+  if [ "version" != "${install_type}" ]; then
+    echo "The asdf-btrace plugin only supports intalling official"
+    echo "binary releases as built by the j'bang team."
+    echo "If you want to install another version from source, see:"
+    echo "https://github.com/btraceio/btrace/"
+    exit 1
+  fi
+
+  # running this in a subshell
+  # we don't want to disturb current working dir
+  (
+    set -e
+
+    local tar_path="$tmp_download_dir/btrace-v${version}-bin.tar.gz"
+    curl -fsLS -o "$tar_path" "$(download_url "$version")" || fail "could not download btrace archive"
+    tar -xzf "$tar_path" -C "$download_path" || fail "failed to extract btrace archive"
+    chmod -R u+rwx "$download_path/bin"/*
+    rm -f "$tar_path"
+  ) || (rm -rf "$download_path"; exit 1)
+}
+
+download_url() {
+  local version=$1
+  case "$version" in
+  1.3.11)
+    echo "https://github.com/btraceio/btrace/releases/download/v${version}/btrace-bin-${version}.tgz.tar.gz"
+  ;;
+  1.3*)
+    echo "https://github.com/btraceio/btrace/releases/download/v${version}/btrace-bin-${version}.tgz"
+  ;;
+  2.0.0)
+    echo "https://github.com/btraceio/btrace/releases/download/v${version}/btrace-bin.tar.gz"
+  ;;
+  2.0*|2.1*)
+    echo "https://github.com/btraceio/btrace/releases/download/v${version}/btrace-${version}-bin.tar.gz"
+  ;;
+  *)
+    echo "https://github.com/btraceio/btrace/releases/download/v${version}/btrace-v${version}-bin.tar.gz"
+  ;;
+  esac
+}
+
+fail() {
+  echo "asdf-btrace error: " "$@"
+  exit 1
+}
+
+download "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_DOWNLOAD_PATH"
