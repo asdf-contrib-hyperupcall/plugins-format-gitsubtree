@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+fail() {
+  echo -e "\e[31mFail:\e[m $*"
+  exit 1
+}
+
+get_arch() {
+  local -r machine="$(uname -m)"
+  OVERWRITE_ARCH=${ASDF_HASHICORP_OVERWRITE_ARCH:-"false"}
+  if [[ $OVERWRITE_ARCH != "false" ]]; then
+    echo "$OVERWRITE_ARCH"
+  elif [[ $machine == "arm64" ]] || [[ $machine == "aarch64" ]]; then
+    echo "arm64"
+  else
+    echo "amd64"
+  fi
+}
+
+get_platform() {
+  local -r kernel="$(uname -s)"
+  if [[ $OSTYPE == "msys" || $kernel == "CYGWIN"* || $kernel == "MINGW"* ]]; then
+    echo windows
+  else
+    uname | tr '[:upper:]' '[:lower:]'
+  fi
+}
+
+install_tfupdate() {
+  local install_type=$1
+  local version=$2
+  local install_path=$3
+  local -r arch="$(get_arch)"
+  local -r platform="$(get_platform)"
+
+  if [ "${install_type}" != "version" ]
+  then
+    echo "The asdf-tfupdate plugin only supports official binary releases."
+    exit 1
+  fi
+
+  local install_bin_path="${install_path}/bin"
+
+  # e.g: https://github.com/minamijoyo/tfupdate/releases/download/v0.6.1/tfupdate_0.6.1_darwin_amd64.tar.gz
+  # curl -L -C - https://github.com/minamijoyo/tfupdate/releases/download/v0.6.1/tfupdate_0.6.1_darwin_amd64.tar.gz | tar zxf - tfupdate
+
+  echo "∗ Downloading and installing tfupdate..."
+  (
+    mkdir -p "${install_bin_path}"
+
+    curl -L -C - "https://github.com/minamijoyo/tfupdate/releases/download/v${version}/tfupdate_${version}_${platform}_${arch}.tar.gz"  | tar zxf - -C "${install_bin_path}" tfupdate
+    echo "The installation was successful!"
+
+  ) || (
+    rm -rf "${install_path}"
+    fail "An error occurred"
+  )
+}
+
+install_tfupdate "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
