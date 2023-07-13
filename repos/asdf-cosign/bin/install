@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+set -e
+set -o pipefail
+
+ASDF_INSTALL_TYPE=${ASDF_INSTALL_TYPE:-version  }
+TMPDIR=${TMPDIR:-/tmp}
+[ -n "$ASDF_INSTALL_VERSION" ] || (>&2 echo 'Missing ASDF_INSTALL_VERSION' && exit 1)
+[ -n "$ASDF_INSTALL_PATH" ] || (>&2 echo 'Missing ASDF_INSTALL_PATH' && exit 1)
+
+install_cosign() {
+  # local install_type=$1       # not currently used
+  local version=$2
+  local install_path=$3
+  local bin_install_path="$install_path/bin"
+
+  mkdir -p "${bin_install_path}"
+
+  curl -sSL "https://github.com/sigstore/cosign/releases/download/v${version}/release-cosign.pub" -o "${install_path}/release-cosign.pub"
+
+  for prog in cosign sget; do
+    echo "Downloading ${prog} from $(get_download_url "$version" "$prog")"
+    curl -sSL "$(get_download_url "$version" "$prog")" -o "${bin_install_path}/${prog}"
+    chmod +x "${bin_install_path}/${prog}"
+
+    echo "Downloading signature and verifying"
+    curl -sSL "$(get_download_url "$version" "$prog").sig" -o "${bin_install_path}/${prog}.sig"
+
+    # verify the signature and remove the binary if it fails
+    if ! "${bin_install_path}/cosign" verify-blob --key "${install_path}/release-cosign.pub" \
+        --signature "${bin_install_path}/${prog}.sig" "${bin_install_path}/${prog}"; then
+      echo "*WARNING* verification of ${prog} failed - removing binary"
+      rm "${bin_install_path}/${prog}"
+    fi
+  done
+}
+
+get_arch() {
+  local arch; arch=$(uname -m | tr '[:upper:]' '[:lower:]')
+  case ${arch} in
+  x86_64)
+    arch='amd64'
+    ;;
+  esac
+
+  echo "${arch}"
+}
+
+get_platform() {
+  local plat; plat=$(uname | tr '[:upper:]' '[:lower:]')
+
+  echo "${plat}"
+}
+
+get_download_url() {
+  local version="$1"
+  local prog="$2"
+  local arch; arch="$(get_arch)"
+  local platform; platform="$(get_platform)"
+  echo "https://github.com/sigstore/cosign/releases/download/v${version}/${prog}-${platform}-${arch}"
+}
+
+if [[ -z "$SHELLSPEC_LIB" ]]; then
+  install_cosign "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
+fi
