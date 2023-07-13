@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -e
+
+# check ASDF environment variables
+[ -n "$ASDF_INSTALL_VERSION" ] || (echo 'Missing ASDF_INSTALL_VERSION' >&2 && exit 1)
+[ -n "$ASDF_DOWNLOAD_PATH" ] || (echo 'Missing ASDF_DOWNLOAD_PATH' >&2 && exit 1)
+
+DOWNLOAD_URL="https://github.com/kdabir/has/archive/refs/tags/v${ASDF_INSTALL_VERSION}.zip"
+curl -s -fL -o /tmp/has.zip "${DOWNLOAD_URL}"
+unzip /tmp/has.zip -d "$ASDF_DOWNLOAD_PATH" || exit 1
+rm /tmp/has.zip || exit 1
