@@ -1,0 +1,38 @@
+name: Build
+
+on:
+  pull_request:
+  push:
+  schedule:
+    - cron: "0 0 * * *" # daily at midnight
+
+jobs:
+  plugin_test:
+    name: asdf plugin test
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Install dependencies on macOS
+        if: matrix.os == 'macos-latest'
+        run: brew install ossp-uuid # uuid headers
+
+      - name: Install dependencies on Ubuntu
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y uuid-dev libncurses-dev
+
+      - name: asdf_plugin_test
+        uses: asdf-vm/actions/plugin-test@v1
+        with:
+          command: scheme --version
+        env:
+          GITHUB_API_TOKEN: ${{ github.token }}
