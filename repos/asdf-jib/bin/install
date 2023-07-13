@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+installer() {
+  local install_type=$1
+  local version=$2
+  local install_path=$3
+
+  local tmp_download_dir
+  tmp_download_dir=$(mktemp -d -t jib_XXXXXXX)
+
+  if ! which java >/dev/null; then
+    echo "You need a Java Runtime already installed on your computer."
+    echo "Follow the instructions for your platform or download it"
+    echo "from http://java.com/en/download"
+    exit 1
+  fi
+
+  if [ "version" != "${install_type}" ]; then
+    echo "The asdf-jib plugin only supports intalling official"
+    echo "binary releases as built by the Jib team."
+    echo "If you want to install another version from source, see:"
+    echo "https://github.com/GoogleContainerTools/jib/"
+    exit 1
+  fi
+
+  # running this in a subshell
+  # we don't want to disturb current working dir
+  (
+    set -e
+
+    local zip_path="$tmp_download_dir/jib-${version}.zip"
+    curl -Lo "$zip_path" "$(download_url "$version")" || fail "Could not download Jib archive"
+    unzip -q "$zip_path" -d "$tmp_download_dir" || fail "Failed to extract Jib archive"
+    mv "${tmp_download_dir}/jib-${version}"/* "$install_path"
+  ) || (rm -rf "$install_path"; exit 1)
+}
+
+download_url() {
+  local version=$1
+  echo "https://github.com/GoogleContainerTools/jib/releases/download/v${version}-cli/jib-jre-${version}.zip"
+}
+
+fail() {
+  echo "asdf-jib error: " "$@"
+  exit 1
+}
+
+installer "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
