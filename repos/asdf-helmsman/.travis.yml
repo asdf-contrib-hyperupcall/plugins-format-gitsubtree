@@ -1,0 +1,10 @@
+language: c
+before_script:
+  - git clone https://github.com/asdf-vm/asdf.git
+  - . asdf/asdf.sh
+script:
+  - asdf plugin-add helmsman ./
+  - asdf list-all helmsman
+  - asdf plugin-test helmsman ./ 'helmsman -v'
+os:
+  - osx
