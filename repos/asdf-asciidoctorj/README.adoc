@@ -1,0 +1,62 @@
+= asdf-asciidoctorj
+
+image::https://github.com/gliwka/asdf-asciidoctorj/workflows/CI/badge.svg?branch=master[CI]
+
+asciidoctorj plugin for the https://asdf-vm.com/[asdf] version manager.
+
+== Requirements
+
+This plugin should work out of the box on Linux and Mac operating systems.
+If one of the commands needed is unavailable, it will let you know.
+
+You need to have java installed to run asciidoctorj. asdf might help you here ;-)
+
+== Installing
+
+Add plugin
+
+```
+asdf plugin-add asciidoctorj
+```
+
+List versions
+
+```
+asdf list all asciidoctorj
+
+1.6.0
+1.6.0-RC.1
+1.6.0-RC.2
+1.6.0-alpha.1
+1.6.0-alpha.3
+1.6.0-alpha.4
+1.6.0-alpha.5
+1.6.0-alpha.6
+1.6.0-alpha.7
+1.6.1
+1.6.2
+1.7.0-RC.1
+2.0.0
+2.0.0-RC.1
+2.0.0-RC.2
+2.0.0-RC.3
+2.1.0
+2.2.0
+
+
+```
+
+Install asciidoctorj
+
+```
+
+asdf install asciidoctorj 2.2.0
+
+```
+
+Apply asciidoctorj locally
+
+```
+asdf local asciidoctorj 2.2.0
+
+```
