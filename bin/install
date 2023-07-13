@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+fail() {
+  echo -e "\e[31mFail:\e[m $*"
+  exit 1
+}
+
+install_opam() {
+  local install_type=$1
+  local version=$2
+  local install_path=$3
+
+  if [ "$install_type" != "version" ]; then
+    fail "asdf-opam supports release installs only"
+  fi
+
+  local platform
+
+  case "$OSTYPE" in
+    darwin*) platform="macos" ;;
+    linux*) platform="linux" ;;
+    openbsd*) platform="openbsd" ;;
+    *) fail "Unsupported platform" ;;
+  esac
+
+  local architecture
+
+  case "$(uname -m)" in
+    x86_64) architecture="x86_64" ;;
+    i686) architecture="i686" ;;
+    armv7l) architecture="armhf" ;;
+    arm | arm64 | aarch64) architecture="arm64" ;;
+    *) fail "Unsupported architecture" ;;
+  esac
+
+  local download_url="https://github.com/ocaml/opam/releases/download/${version}/opam-${version}-${architecture}-${platform}"
+  local source_path="${install_path}/bin/opam"
+
+  (
+    echo "∗ Downloading and installing opam..."
+    mkdir -p "${install_path}/bin"
+    curl --silent --location --create-dirs --output "$source_path" "$download_url" || fail "Could not download Opam $version"
+    chmod +x "$source_path" || fail "Could not find Opam binary"
+    echo "The installation was successful!"
+  ) || (
+    rm -rf "$install_path"
+    fail "An error occurred"
+  )
+}
+
+install_opam "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
