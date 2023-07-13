@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+
+set \
+  -o errexit \
+  -o nounset \
+  -o pipefail
+
+# required environment variables
+: ${ASDF_INSTALL_TYPE?}
+: ${ASDF_INSTALL_VERSION?}
+: ${ASDF_INSTALL_PATH?}
+: ${ASDF_DOWNLOAD_PATH?}
+
+readonly repository="talos-systems/talos"
+readonly toolname="talosctl"
+
+install() {
+  local -r os=$(get_os)
+  local -r arch=$(get_arch)
+  local -r filename="${toolname}-${os}-${arch}"
+  local -r download_pkg="${ASDF_DOWNLOAD_PATH}/${filename}"
+
+  echo "Installing ${toolname} from git repository"
+  [ ! -d "${ASDF_INSTALL_PATH}/bin" ] && mkdir -p "${ASDF_INSTALL_PATH}/bin"
+  chmod +x "$download_pkg"
+  cp "$download_pkg" "${ASDF_INSTALL_PATH}/bin/${toolname}" 2>/dev/null
+  if [ $? -eq 0 ]
+  then
+    echo "Successfully installed ${toolname} ${ASDF_INSTALL_VERSION}"
+    exit 0
+  else
+    echo "Failed to install ${toolname} ${ASDF_INSTALL_VERSION}"
+    exit 1
+  fi
+}
+
+get_os() {
+  uname | tr '[:upper:]' '[:lower:]'
+}
+
+get_arch() {
+  local -r arch=$(uname -m)
+
+  if [[ "x$arch" == "xx86_64" ]]
+  then
+    echo "amd64"
+  else
+    echo "$arch"
+  fi
+}
+
+install
