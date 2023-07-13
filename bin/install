@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+
+set -e
+set -o pipefail
+
+[ -n "$ASDF_INSTALL_VERSION" ] || (echo >&2 'Missing ASDF_INSTALL_VERSION' && exit 1)
+[ -n "$ASDF_INSTALL_PATH" ] || (echo >&2 'Missing ASDF_INSTALL_PATH' && exit 1)
+
+get_platform() {
+  local platform
+  platform="$(uname | tr '[:upper:]' '[:lower:]')"
+
+  case "$platform" in
+    linux | darwin)
+      echo "Platform '${platform}' supported!" >&2
+      ;;
+    *)
+      echo "Platform '${platform}' not supported!" >&2
+      exit 1
+      ;;
+  esac
+
+  echo -n "${platform}"
+}
+
+get_arch() {
+  local arch=""
+
+  case "$(uname -m)" in
+    x86_64 | amd64)
+      arch="amd64"
+      ;;
+    aarch64 | arm64)
+      arch="arm64"
+      ;;
+    *)
+      echo "Arch '$(uname -m)' not supported!" >&2
+      exit 1
+      ;;
+  esac
+
+  echo -n "${arch}"
+}
+
+get_download_url() {
+  local version="$1"
+  local src_file="$2"
+  echo "https://github.com/linkerd/linkerd2/releases/download/stable-${version}/${src_file}"
+}
+
+validate_checksum() {
+  filename=$1
+  url=$2
+  SHA=$(curl -sfL "${url}.sha256")
+  echo ""
+  echo "Validating checksum..."
+
+  case $checksumbin in
+    *openssl)
+      checksum=$($checksumbin dgst -sha256 "${filename}" | sed -e 's/^.* //')
+      ;;
+    *shasum)
+      checksum=$($checksumbin -a256 "${filename}" | sed -e 's/^.* //')
+      ;;
+  esac
+
+  if [ "$checksum" != "$SHA" ]; then
+    echo "Checksum validation failed." >&2
+    return 1
+  fi
+  echo "Checksum valid."
+  return 0
+}
+
+checksumbin=$(command -v openssl) || checksumbin=$(command -v shasum) || {
+  echo "Failed to find checksum binary. Please install openssl or shasum."
+  exit 1
+}
+
+my_mktemp() {
+  local tempdir=""
+  if [ "linux" = "$1" ]; then
+    tempdir=$(mktemp -d asdf-helm.XXXX)
+  else
+    tempdir=$(mktemp -dt asdf-helm.XXXX)
+  fi
+  echo -n "${tempdir}"
+}
+
+install_linkerd() {
+  local version=$1
+  local install_path=$2
+  local platform
+  platform=$(get_platform)
+  local arch
+  arch=$(get_arch)
+  local tempdir
+  tempdir=$(my_mktemp "${platform}")
+  if [ "${platform}" == "darwin" ] && [ "${arch}" == 'amd64' ]; then
+    local src_file="linkerd2-cli-stable-${version}-${platform}"
+  else
+    local src_file="linkerd2-cli-stable-${version}-${platform}-${arch}"
+  fi
+  local download_url
+  download_url=$(get_download_url "${version}" "${src_file}")
+  local bin_install_path="${install_path}/bin"
+
+  curl -sSL "${download_url}" -o "${tempdir}/linkerd"
+  if ! validate_checksum "${tempdir}/linkerd" "${download_url}"; then
+    exit 1
+  fi
+  mkdir -p "${bin_install_path}"
+  mv "${tempdir}/linkerd" "${bin_install_path}"
+  chmod +x "${bin_install_path}/linkerd"
+
+  rm -rf "${tempdir}"
+}
+
+install_linkerd "${ASDF_INSTALL_VERSION}" "${ASDF_INSTALL_PATH}"
