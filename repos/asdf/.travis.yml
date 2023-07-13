@@ -1,0 +1,11 @@
+language: c
+before_script:
+  - git clone https://github.com/asdf-vm/asdf.git
+  - . asdf/asdf.sh
+script: 
+  - asdf plugin-add adr-tools ./
+  - asdf list-all adr-tools
+  - asdf plugin-test adr-tools ./ 'adr help' || exit 1
+os:
+  - linux
+  - osx
