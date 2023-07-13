@@ -1,0 +1,74 @@
+{
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": false,
+  "contributors": [
+    {
+      "login": "marciogm",
+      "name": "marciogm",
+      "avatar_url": "https://avatars1.githubusercontent.com/u/34196389?v=4",
+      "profile": "https://github.com/marciogm",
+      "contributions": [
+        "code",
+        "doc",
+        "maintenance"
+      ]
+    },
+    {
+      "login": "imbsky",
+      "name": "BSKY",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/38746192?v=4",
+      "profile": "https://bsky.moe",
+      "contributions": [
+        "code",
+        "doc",
+        "maintenance",
+        "infra"
+      ]
+    },
+    {
+      "login": "Stanislav-Lapata",
+      "name": "Stanislav Lapata",
+      "avatar_url": "https://avatars1.githubusercontent.com/u/12072329?v=4",
+      "profile": "https://github.com/Stanislav-Lapata",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "jeffhertzler",
+      "name": "Jeff Hertzler",
+      "avatar_url": "https://avatars1.githubusercontent.com/u/223578?v=4",
+      "profile": "https://github.com/jeffhertzler",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "epergo",
+      "name": "Eloy Pérez",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/6479554?v=4",
+      "profile": "https://github.com/epergo",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "cbortz",
+      "name": "Chet Bortz",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/184307?v=4",
+      "profile": "https://github.com/cbortz",
+      "contributions": [
+        "code"
+      ]
+    }
+  ],
+  "contributorsPerLine": 7,
+  "projectName": "asdf-crystal",
+  "projectOwner": "asdf-community",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "skipCi": true
+}
