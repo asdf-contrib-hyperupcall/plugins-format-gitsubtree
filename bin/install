@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+trap cleanup SIGINT SIGTERM ERR
+
+cleanup() {
+  trap - SIGINT SIGTERM ERR
+  rm -rf "$ASDF_INSTALL_PATH"
+  echo
+  echo -e "\e[33mCleanup:\e[m Something went wrong!"
+  echo
+  echo "$(caller): ${BASH_COMMAND}"
+}
+
+fail() {
+  echo -e "\e[31mFail:\e[m $*"
+  exit 1
+}
+
+install_direnv() {
+  local install_type=$1
+  local version=$2
+  local install_path=$3
+
+  if [ "$install_type" != "version" ]; then
+    fail "asdf-direnv supports release installs only"
+  fi
+
+  local platform
+
+  case "$OSTYPE" in
+    darwin*) platform="darwin" ;;
+    FreeBSD*) platform="freebsd" ;;
+    linux*) platform="linux" ;;
+    netbsd*) platform="netbsd" ;;
+    openbsd*) platform="openbsd" ;;
+    *) fail "Unsupported platform" ;;
+  esac
+
+  local architecture
+
+  case "$(uname -m)" in
+    aarch64* | arm64) architecture="arm64" ;;
+    armv5* | armv6* | armv7*) architecture="arm" ;;
+    i686*) architecture="386" ;;
+    x86_64*) architecture="amd64" ;;
+    ppc64le*) architecture="ppc64le" ;;
+    ppc64*) architecture="ppc64" ;;
+    ppc*) architecture="ppc" ;;
+    mipsel*) architecture="mipsle" ;;
+    mips*) architecture="mips" ;;
+    *) fail "Unsupported architecture" ;;
+  esac
+
+  local download_url="https://github.com/direnv/direnv/releases/download/v${version}/direnv.${platform}-${architecture}"
+  local source_path="${install_path}/bin/direnv"
+
+  echo "∗ Downloading and installing direnv..."
+  mkdir -p "${install_path}/bin"
+  curl --fail --silent --location --create-dirs --output "$source_path" "$download_url"
+  chmod +x "${install_path}/bin/direnv"
+  echo "The installation was successful!"
+}
+
+install_direnv "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
