@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+if [ "$HAMLER_HOME" = "" ]; then
+  export HAMLER_HOME="$ASDF_INSTALL_PATH"
+fi
