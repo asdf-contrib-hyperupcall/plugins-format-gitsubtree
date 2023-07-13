@@ -1,0 +1,8 @@
+# IntelliJ
+.idea/
+
+# Vim
+*.swp
+
+# NodeJS (for semantic-release)
+node_modules/
