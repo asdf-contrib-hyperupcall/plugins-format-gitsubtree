@@ -1,0 +1,11 @@
+language: java
+jdk:
+  - openjdk11
+script: asdf plugin-test kscript https://github.com/edgelevel/asdf-kscript.git
+before_script:
+  - git clone https://github.com/asdf-vm/asdf.git
+  - . asdf/asdf.sh
+  - asdf plugin-add kotlin https://github.com/missingcharacter/asdf-kotlin.git
+os:
+  - linux
+  - osx
