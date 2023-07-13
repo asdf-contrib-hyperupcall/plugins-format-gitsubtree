@@ -1,0 +1,59 @@
+name: Test Plugin
+
+on:
+  pull_request:
+  push:
+  schedule:
+    - cron: 0 1 * * MON
+
+jobs:
+  test-plugin:
+    name: Test Plugin
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: asdf-vm/actions/plugin-test@v2
+        with:
+          command: haxe --version
+
+  link-test:
+    name: Link Test
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout tree
+        uses: actions/checkout@v3
+
+      - name: asdf_setup
+        uses: asdf-vm/actions/setup@v2
+
+      - name: Install plugins and tools
+        run: |
+          asdf plugin add haxe $GITHUB_WORKSPACE
+          asdf plugin add neko
+          asdf install haxe 4.1.3
+          asdf install neko 2.3.0
+          asdf global haxe 4.1.3
+          asdf global neko 2.3.0
+
+      - name: Run link command
+        run: asdf haxe neko dylibs link
+
+      - name: Run haxelib command
+        run: haxelib version
