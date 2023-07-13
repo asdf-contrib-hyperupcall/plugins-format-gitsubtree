@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+if [[ "$ASDF_INSTALL_TYPE" == "version" ]]; then
+  ASDF_INSTALL_VERSION="v${ASDF_INSTALL_VERSION}"
+fi
+
+export GOBIN="${ASDF_INSTALL_PATH}/bin"
+go install sigs.k8s.io/controller-tools/cmd/{controller-gen,helpgen,type-scaffold}@"${ASDF_INSTALL_VERSION}"
