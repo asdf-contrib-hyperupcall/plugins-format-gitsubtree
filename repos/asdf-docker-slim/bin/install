@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+
+set \
+  -o nounset \
+  -o pipefail \
+  -o errexit
+
+# required environment variables
+: "${ASDF_INSTALL_TYPE?}"
+: "${ASDF_INSTALL_VERSION?}"
+: "${ASDF_INSTALL_PATH?}"
+
+# make a temporary download directory with a cleanup hook
+TMP_DOWNLOAD_DIR="$(mktemp -d -t "asdf_docker-slim_XXXXXX")"
+readonly TMP_DOWNLOAD_DIR
+
+trap 'rm -rf "${TMP_DOWNLOAD_DIR?}"' EXIT
+
+install () {
+  # local -r install_type="$1"
+  local -r version="$2"
+  local -r install_path="$3"
+
+  local -r bin_install_path="${install_path}/bin"
+
+  local -r download_url="$(get_download_url "${version}")"
+  local -r filename=$(basename "${download_url}")
+  
+  echo "Downloading version ${version} of docker-slim"
+  if curl -sfL -o "${TMP_DOWNLOAD_DIR}/${filename}" "${download_url}"; then
+
+    echo "Extracting version ${version} of docker-slim"
+    case "${filename##*.}" in 
+    zip)
+      unzip -qq "${TMP_DOWNLOAD_DIR}/${filename}" -d "${TMP_DOWNLOAD_DIR}"
+      ;;
+    gz)
+      tar zxf "${TMP_DOWNLOAD_DIR}/${filename}" -C "${TMP_DOWNLOAD_DIR}"
+      ;;
+    esac
+
+    echo "Cleaning docker-slim previous binaries"
+    rm -rf "${bin_install_path?}"
+
+    echo "Creating docker-slim bin directory"
+    mkdir -p "${bin_install_path}"
+
+    local f
+    for f in "${TMP_DOWNLOAD_DIR}/${filename%%.*}"/*; do
+      if [[ -f "${f}" ]] \
+      && [[ -x "${f}" ]]; then
+        cp "${f}" "${bin_install_path}"
+      fi
+    done
+    echo "Done"
+  else
+    echo "Error: docker-slim version ${version} not found" >&2
+    exit 1
+  fi
+}
+
+fail() {
+  echo -e "\e[31mFail:\e[m $*"
+  exit 1
+}
+
+get_filename () {
+  local -r version="$1"
+  local -r ext="${2:-.zip}"
+  local -r arch="$(get_arch)"
+
+  echo "${version}/dist_${arch}${ext}"
+}
+
+get_download_url () {
+  local -r version="$1"
+  local platform
+
+  case "$OSTYPE" in
+    darwin*) platform="darwin" ;;
+    linux*) platform="linux" ;;
+     *) fail "Unsupported platform" ;;
+  esac
+
+  local architecture
+
+  case "$(uname -m)" in
+    aarch64* | arm64) architecture="arm64" ;;
+    armv5* | armv6* | armv7*) architecture="arm" ;;
+    x86_64*) architecture="amd64" ;;
+    *) fail "Unsupported architecture" ;;
+  esac
+  
+  if [ "$platform" == "darwin" ]; then
+    if [ "$architecture" == "arm64" ]; then
+      echo https://downloads.dockerslim.com/releases/"${version}"/dist_mac_m1.zip
+    elif [ "$architecture" == "amd64" ]; then
+      echo https://downloads.dockerslim.com/releases/"${version}"/dist_mac.zip
+    fi
+  elif [ "$platform" == "linux" ]; then
+    if [ "$architecture" == "arm" ]; then
+      echo https://downloads.dockerslim.com/releases/"${version}"/dist_linux_arm.tar.gz
+    elif [ "$architecture" == "arm64" ]; then
+      echo https://downloads.dockerslim.com/releases/"${version}"/dist_linux_arm64.tar.gz
+    elif [ "$architecture" == "amd64" ]; then
+      echo https://downloads.dockerslim.com/releases/"${version}"/dist_linux.tar.gz
+    fi
+  fi
+
+}
+
+install "${ASDF_INSTALL_TYPE}" "${ASDF_INSTALL_VERSION}" "${ASDF_INSTALL_PATH}"
