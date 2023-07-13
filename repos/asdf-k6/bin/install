@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -e
+
+# check ASDF environment variables
+[ -n "$ASDF_INSTALL_PATH" ] || (echo 'Missing ASDF_INSTALL_PATH' >&2 && exit 1)
+[ -n "$ASDF_DOWNLOAD_PATH" ] || (echo 'Missing ASDF_DOWNLOAD_PATH' >&2 && exit 1)
+
+mkdir -p "${ASDF_INSTALL_PATH}/bin"
+toolPath="${ASDF_INSTALL_PATH}/bin/k6"
+
+cd "${ASDF_DOWNLOAD_PATH}"
+
+case "$(uname -s)" in
+	"Darwin")
+		unzip -q k6.zip
+		mv ./k6-v${ASDF_INSTALL_VERSION}-macos-amd64/k6 "${toolPath}"
+		;;
+	"Linux")
+		tar xzf k6.tar.gz
+		mv ./k6-v${ASDF_INSTALL_VERSION}-linux-amd64/k6 "${toolPath}"
+		;;
+esac
+
+chmod +x "${toolPath}"
