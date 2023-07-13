@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+
+set -e
+set -o pipefail
+
+binary_name="kubespy"
+
+install() {
+  local version=$2
+  local install_path=$3
+  local platform="$(uname | tr '[:upper:]' '[:lower:]')-amd64"
+
+  local bin_install_path="$install_path/bin"
+  local binary_path="$bin_install_path/kubespy"
+  local download_url=$(get_download_url $version $platform)
+
+  echo "Creating bin directory"
+  mkdir -p "${bin_install_path}"
+
+  echo "Downloading kubespy from ${download_url} to ${binary_path}.tgz"
+  curl -L "${download_url}" -o "${binary_path}.tgz"
+  pushd "$(dirname ${binary_path})" > /dev/null
+  tar -xzvf "${binary_path}.tgz"
+
+  if [[ $(version_check $version) -ge $(version_check "0.6.0") ]]; then
+    rm -rf "${binary_path}.tgz"
+    chmod +x "${binary_path}"
+  else
+    mv "releases/${binary_name}-${platform}/${binary_name}" ${binary_path}
+    rm -rf "${binary_name}-${platform}"
+    rm -rf "${binary_path}.tgz"
+    chmod +x "${binary_path}"
+  fi
+
+  popd > /dev/null
+}
+
+get_download_url() {
+  local version="$1"
+  local platform="$2"
+  if [[ $(version_check $version) -ge $(version_check "0.6.0") ]]; then
+    local filename="${binary_name}-v${version}-${platform}.tar.gz"
+  else
+    local filename="${binary_name}-${platform}.tar.gz"
+  fi
+  echo "https://github.com/pulumi/kubespy/releases/download/v${version}/${filename}"
+}
+
+version_check() {
+  echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }';
+}
+
+install $ASDF_INSTALL_TYPE $ASDF_INSTALL_VERSION $ASDF_INSTALL_PATH
