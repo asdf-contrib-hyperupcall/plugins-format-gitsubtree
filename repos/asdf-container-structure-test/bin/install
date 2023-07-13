@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+mkdir -p "${ASDF_INSTALL_PATH}/bin"
+cp "${ASDF_DOWNLOAD_PATH}/container-structure-test" "${ASDF_INSTALL_PATH}/bin"
+chmod +x "${ASDF_INSTALL_PATH}/bin/container-structure-test"
