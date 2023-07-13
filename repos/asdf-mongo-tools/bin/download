@@ -1,0 +1,32 @@
+#!/bin/bash
+
+set -e
+
+: "${ASDF_INSTALL_PATH:?"Missing ASDF_INSTALL_PATH"}"
+: "${ASDF_INSTALL_VERSION:?"Missing ASDF_INSTALL_VERSION"}"
+: "${ASDF_DOWNLOAD_PATH:?"Missing ASDF_DOWNLOAD_PATH"}"
+
+command -v go >/dev/null 2>&1 || (
+  echo "Could not find go executable. Make sure you have go version $_SUPPORTED_GO_VERSION installed." 1>&2 &&
+    exit 1
+)
+
+_SUPPORTED_GO_VERSION="1.15"
+_INSTALLED_GO_VERSION="$(go version | sed -En -e "s:.*go([0-9]+\.[0-9]+).*$:\1:p")"
+
+[ "$_INSTALLED_GO_VERSION" == "$_SUPPORTED_GO_VERSION" ] || (
+  echo "mongo-tools needs to be compiled with $_SUPPORTED_GO_VERSION, but you have $_INSTALLED_GO_VERSION installed." 1>&2 &&
+    exit 1
+)
+
+unset _SUPPORTED_GO_VERSION _INSTALLED_GO_VERSION
+
+(
+  mkdir -p "$ASDF_DOWNLOAD_PATH/src/github.com/mongodb" &&
+    git clone "https://github.com/mongodb/mongo-tools" --branch "r$ASDF_INSTALL_VERSION" --single-branch "$ASDF_DOWNLOAD_PATH/src/github.com/mongodb/mongo-tools" &&
+    exit 0
+) || (
+  echo "Download failed" 1>&2 &&
+    rm -rf "$ASDF_DOWNLOAD_PATH" &&
+    exit 1
+)
