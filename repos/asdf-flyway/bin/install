@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${ASDF_INSTALL_VERSION:?"Missing ASDF_INSTALL_VERSION"}"
+: "${ASDF_INSTALL_PATH:?"Missing ASDF_INSTALL_PATH"}"
+
+pwd="$(dirname "$0")"
+
+# shellcheck disable=SC1091
+source "$pwd/../lib/constants.bash"
+
+install_tool() {
+  local version="$1"
+  local install_path="$2"
+  local bin_install_path="$install_path/bin"
+  local os=""
+  local fileext=".tar.gz"
+  local basedir="$RELEASES_DIRECTORY$version/"
+  local basefile="flyway-commandline-$version"
+  local tempdir=""
+  local filename=""
+  local tempfile=""
+  local download_url=""
+
+  os=$(uname -s) #Linux | Darwin
+
+  if [[ "$os" == "Darwin" ]]; then
+    filename="$basefile-macosx-x64$fileext"
+    tempdir=$(mktemp -dt asdf-flyway.XXXX)
+  else
+    filename="$basefile-linux-x64$fileext"
+    tempdir=$(mktemp -d asdf-flyway.XXXX)
+  fi
+
+  if ! curl -I "$basedir$filename" >/dev/null 2>&1 || curl -s -I -o /tmp/curl_output "$basedir$filename" && ! grep -q '^HTTP/.* 200' /tmp/curl_output; then
+    filename="$basefile$fileext"
+  fi
+
+  download_url="$basedir$filename"
+  tempfile="${tempdir}/${filename}"
+
+  echo "download_url: $download_url"
+
+  curl -L "$download_url" -o "$tempfile"
+  mkdir -p "$bin_install_path"
+  tar zxf "$tempfile" -C "$bin_install_path" --strip-components=1 || exit 1
+  rm -rf "$tempdir"
+}
+
+install_tool "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"

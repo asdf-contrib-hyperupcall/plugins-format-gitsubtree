@@ -1,0 +1,42 @@
+name: Test plugin
+
+on:
+  pull_request:
+    paths-ignore:
+    - '**.md'
+  push:
+    paths-ignore:
+    - '**.md'
+
+jobs:
+  plugin-test:
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Install asdf
+      uses: asdf-vm/actions/setup@v2
+
+    - name: Move flyway plugin to asdf plugins dir
+      run: |
+        mkdir -p ${ASDF_DIR}/plugins
+        cp -r . ${ASDF_DIR}/plugins/flyway
+
+    - name: Run flyway plugin tests
+      run: |
+        echo "Trying to list all versions of flyway"
+        asdf list all flyway
+        echo "Trying to install flyway 3.0"
+        asdf install flyway 3.0
+        asdf list flyway | grep 3.0
+        echo "Trying to install flyway 5.1.4"
+        asdf install flyway 5.1.4
+        asdf list flyway | grep 5.1.4
+        echo "Trying to install flyway 9.9.0"
+        asdf install flyway 9.9.0
+        asdf list flyway | grep 9.9.0
+
+    - uses: asdf-vm/actions/plugin-test@v2
+      with:
+        command: flyway --version
