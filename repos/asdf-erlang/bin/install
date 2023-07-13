@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+# Unoffical Bash "strict mode"
+# http://redsymbol.net/articles/unofficial-bash-strict-mode/
+set -euo pipefail
+#ORIGINAL_IFS=$IFS
+IFS=$'\t\n' # Stricter IFS settings
+
+# shellcheck source=lib/utils.sh
+source "$(dirname "$0")/../lib/utils.sh"
+
+install_erlang() {
+    ensure_kerl_setup
+    local build_name
+
+    build_name="asdf_$ASDF_INSTALL_VERSION"
+
+    export MAKEFLAGS="-j$ASDF_CONCURRENCY"
+
+    $(kerl_path) delete installation "$build_name" || true
+    $(kerl_path) delete build "$build_name" || true
+
+    if [ "$ASDF_INSTALL_TYPE" = "ref" ]; then
+        $(kerl_path) build git "${OTP_GITHUB_URL:-https://github.com/erlang/otp.git}" "$ASDF_INSTALL_VERSION" "$build_name"
+    else
+        $(kerl_path) build "$ASDF_INSTALL_VERSION" "$build_name"
+    fi
+
+    # We hide all output from this command so the
+    # "You can activate this installation running the following command:"
+    # that doesn't apply is hidden
+    $(kerl_path) install "$build_name" "$ASDF_INSTALL_PATH" >/dev/null 2>&1
+    $(kerl_path) cleanup "$ASDF_INSTALL_VERSION"
+
+    link_app_executables "$ASDF_INSTALL_PATH"
+}
+
+link_app_executables() {
+    local install_path=$1
+
+    # Link other executables to the bin directory so that asdf shims are created for them
+    cd "$install_path/bin"
+
+    # ln call may fail if multiple executables are found with the same name, so
+    # we loop over all files matching these patterns, and symlink only if
+    # file with same name does not already exist in "$install_path/bin"
+    for file in ../lib/*/bin/* ../lib/*/priv/bin/*; do
+        bin_name="$(basename "$file")"
+
+        if [ ! -e "./$bin_name" ]; then
+            ln -s "$file" .
+        fi
+    done
+}
+
+install_erlang
