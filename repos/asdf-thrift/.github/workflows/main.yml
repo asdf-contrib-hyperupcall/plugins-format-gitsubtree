@@ -1,0 +1,67 @@
+name: CI
+on:
+  pull_request:
+    paths-ignore:
+      - "**.md"
+  push:
+    paths-ignore:
+      - "**.md"
+  schedule:
+    - cron: 0 0 * * 5
+
+jobs:
+  plugin_test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+        version:
+          - 0.13.0
+          - 0.14.2
+          - 0.15.0
+          - 0.16.0
+          - 0.17.0
+          - latest
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name:  Install
+        run:   |
+              if [ "$RUNNER_OS" == "macOS" ]
+                then brew install automake bison boost
+              elif [ "$RUNNER_OS" == "Linux" ]
+                then sudo apt install libboost-all-dev
+              fi
+        shell: bash
+      - uses: actions/checkout@v2
+      - name: Test plugin
+        uses: asdf-vm/actions/plugin-test@v1
+        with:
+          command: thrift --version
+          version: ${{ matrix.version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Run ShellCheck
+        run: shellcheck -s bash -x bin/* -P lib/
+
+  format:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install shfmt
+        run: brew install shfmt
+
+      - name: Run shfmt
+        run: shfmt -d .
