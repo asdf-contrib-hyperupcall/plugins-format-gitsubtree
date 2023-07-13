@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -e
+
+# check ASDF environment variables
+[ -n "$ASDF_INSTALL_PATH" ] || (echo 'Missing ASDF_INSTALL_PATH' >&2 && exit 1)
+[ -n "$ASDF_DOWNLOAD_PATH" ] || (echo 'Missing ASDF_DOWNLOAD_PATH' >&2 && exit 1)
+
+mkdir -p "${ASDF_INSTALL_PATH}/bin"
+toolPath="${ASDF_INSTALL_PATH}/bin/terraformer"
+
+cd "${ASDF_DOWNLOAD_PATH}"
+mv ./terraformer "${toolPath}"
+chmod +x "${toolPath}"
