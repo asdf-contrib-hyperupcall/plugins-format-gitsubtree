@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+
+set -e
+
+current_script_path=${BASH_SOURCE[0]}
+plugin_dir=$(dirname "$(dirname "$current_script_path")")
+source "${plugin_dir}/bin/utils.sh"
+
+install_perl() {
+  local install_type=$1
+  local version=$2
+  local install_path=$3
+  local build_args=$4
+  local generate_man=${ASDF_PERL_GENERATE_MAN:=0}
+
+  if [ "$install_type" != "version" ]; then
+    echoerr "Cannot install specific ref from source, sorry."
+    echoerr "For a list of available versions, see \`asdf list-all perl\`."
+    exit 1
+  fi
+  install_or_update_perl_install
+
+  if [[ $(
+    printf '%s\n' "${build_args[@]}" | grep -q "^-j="
+    echo -n ${?}
+  ) -eq 1 ]]; then
+    build_args+=("-j=${ASDF_CONCURRENCY}")
+  fi
+  if is_development_version "$version"; then
+    build_args+=(-Dusedevel)
+  fi
+  if [ "$generate_man" != 0 ]; then
+    build_args+=(--man)
+  fi
+  echo "perl-install" "${build_args[@]}" "$version" "$install_path"
+  $(perl_install_bin) "${build_args[@]}" "$version" "$install_path"
+}
+
+install_cpanm() {
+  local install_path=$1
+  local cpanm_path="$install_path/bin/cpanm"
+  curl -s -L https://cpanmin.us/ -o "$cpanm_path"
+  chmod +x "$cpanm_path"
+}
+
+install_default_perl_modules() {
+  local default_perl_modules="${ASDF_PERL_DEFAULT_PACKAGES_FILE:=${HOME}/.default-perl-modules}"
+
+  if [ ! -f "$default_perl_modules" ]; then return; fi
+
+  while read -r name; do
+    echo -ne "\nInstalling \033[33m${name}\033[39m perl package... "
+    PATH="$ASDF_INSTALL_PATH/bin:$PATH" cpanm "$name" >/dev/null 2>&1 && rc=$? || rc=$?
+    if [[ $rc -eq 0 ]]; then
+      echo -e "\033[32mSUCCESS\033[39m"
+    else
+      echo -e "\033[31mFAIL\033[39m"
+    fi
+  done <"$default_perl_modules"
+}
+
+is_development_version() {
+  local version=$1
+  local minor_version
+  minor_version=$(echo "$version" | cut -d. -f2)
+
+  # Version string containing hyphen, such like "5.8.0-RC1", is development
+  # release.
+  if [[ "$version" = *-* ]]; then
+    return 0
+  fi
+
+  # Ancient version like "5.003_13", "5.004m5t1" or "5.005". There's no simple
+  # way to decide whether the version is development release or stable one.
+  # Thus assuming these are stable version as default.
+  if [[ "$minor_version" = 0* ]]; then
+    return 1
+  fi
+
+  # Here we should have a SemVer-like version consisting of 3 integers, such
+  # like "5.32.1". As we know, minor version is even if the version is a
+  # stable release.
+  if [[ $((minor_version % 2)) -eq 0 ]]; then
+    return 1
+  fi
+
+  return 0
+}
+
+ensure_perl_install_installed
+install_perl "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH" "$ASDF_PERL_BUILD_ARGS"
+install_cpanm "$ASDF_INSTALL_PATH"
+install_default_perl_modules
