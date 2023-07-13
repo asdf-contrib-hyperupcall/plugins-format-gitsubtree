@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+
+set -e
+set -o pipefail
+
+ASDF_INSTALL_TYPE=${ASDF_INSTALL_TYPE:-version  }
+TMPDIR=${TMPDIR:-/tmp}
+[ -n "$ASDF_INSTALL_VERSION" ] || (>&2 echo 'Missing ASDF_INSTALL_VERSION' && exit 1)
+[ -n "$ASDF_INSTALL_PATH" ] || (>&2 echo 'Missing ASDF_INSTALL_PATH' && exit 1)
+
+install_jqp() {
+  local version=$2
+  local install_path=$3
+  local bin_install_path="$install_path/bin"
+  local download_url; download_url="$(get_download_url "$version")"
+
+  mkdir -p "${bin_install_path}"
+
+  local bin_path="${bin_install_path}/jqp"
+  echo "Downloading jqp from ${download_url}"
+  curl -sSL "$download_url" -o "${install_path}/jqp.tar.gz"
+  tar xzf "${install_path}/jqp.tar.gz" -C "${install_path}"
+  mv "${install_path}/jqp" "${bin_path}"
+  chmod +x "$bin_path"
+  rm -rf "${install_path}/jqp.tar.gz"
+
+  if [ "$(get_platform)" == 'Darwin' ]; then
+    echo "Upon first execution of jqp, you will need to allow jqp to execute"
+    echo "in the Security & Privacy system prefences. Once allowed to execute,"
+    echo "you will need to click 'Open' on the second attempt to execute. Once"
+    echo "this has been accomplished then jqp will execute as a normal command"
+    echo "line utility."
+  fi
+}
+
+get_arch() {
+  local arch; arch=$(uname -m | tr '[:upper:]' '[:lower:]')
+
+  echo "${arch}"
+}
+
+get_platform() {
+  local plat; plat=$(uname | tr '[:upper:]' '[:lower:]')
+  case ${plat} in
+  darwin)
+    plat='Darwin'
+    ;;
+  linux)
+    plat='Linux'
+    ;;
+  windows)
+    plat='Windows'
+    ;;
+  esac
+
+  echo "${plat}"
+}
+
+get_download_url() {
+  local version="$1"
+  local arch; arch="$(get_arch)"
+  local platform; platform="$(get_platform)"
+  echo "https://github.com/noahgorstein/jqp/releases/download/v${version}/jqp_${version}_${platform}_${arch}.tar.gz"
+}
+
+if [[ -z "$SHELLSPEC_LIB" ]]; then
+  install_jqp "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
+fi
