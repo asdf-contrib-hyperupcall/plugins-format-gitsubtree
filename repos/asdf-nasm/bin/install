@@ -1,0 +1,38 @@
+#!/bin/bash
+
+set -e
+
+VERSION_PATH=$ASDF_DOWNLOAD_PATH/nasm-$ASDF_INSTALL_VERSION
+
+go_to_directory(){
+  cd $VERSION_PATH
+}
+
+run_autogen(){
+  sh ./autogen.sh
+}
+
+run_configure(){
+  sh ./configure
+}
+
+run_make(){
+  make
+}
+
+move_bin_files(){
+  mkdir -p $ASDF_INSTALL_PATH/bin
+  mv ./nasm $ASDF_INSTALL_PATH/bin
+  mv ./ndisasm $ASDF_INSTALL_PATH/bin
+}
+
+remove_remain_files(){
+  cd ..
+  rm -rf $VERSION_PATH 
+}
+
+run_installation_steps(){
+  go_to_directory && run_autogen && run_configure && run_make && move_bin_files && remove_remain_files
+}
+
+run_installation_steps
