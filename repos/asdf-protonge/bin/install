@@ -1,0 +1,29 @@
+#! /usr/bin/env bash
+
+set -eu -o pipefail
+
+. "$(dirname "$0")/../lib/utils.bash"
+
+install_tarball() {
+	local install_type="$1" version="$2" download_path="$3" asdf_install_path="$4"
+
+	local tarball_path="$download_path/tarball.tar.gz"
+	local target_dir="$ASDF_PROTONGE_STEAM_COMPAT_DIR/Proton-$version"
+
+	mkdir -p "$ASDF_PROTONGE_STEAM_COMPAT_DIR"
+
+	local old_ls= new_ls= extracted_file=
+	old_ls=$(ls "$ASDF_PROTONGE_STEAM_COMPAT_DIR")
+
+	printf "Extracting... "
+	tar zxf "$tarball_path" -C "$ASDF_PROTONGE_STEAM_COMPAT_DIR/"
+	printf "OK\n"
+
+	new_ls=$(ls "$ASDF_PROTONGE_STEAM_COMPAT_DIR")
+	extracted_file=$(printf '%s\n%s' "$old_ls" "$new_ls" | sort | uniq -u | xargs)
+
+	rmdir "$asdf_install_path"
+	ln -fs "$ASDF_PROTONGE_STEAM_COMPAT_DIR/$extracted_file" "$asdf_install_path"
+}
+
+install_tarball "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_DOWNLOAD_PATH" "$ASDF_INSTALL_PATH"

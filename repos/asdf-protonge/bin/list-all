@@ -1,0 +1,36 @@
+#! /usr/bin/env bash
+
+set -eu -o pipefail
+
+if ! type tac &> /dev/null; then
+	tac() {
+		awk '{ lines[NR] = $0 } END { for(i = NR; i > 0; i--) print(lines[i]) }'
+	}
+fi
+
+get_releases_page() {
+	local page="$1" args=()
+
+	if [ "${GITHUB_API_TOKEN:-}" ]; then
+		args+=(--header "Authorization: token $GITHUB_API_TOKEN")
+	fi
+
+	curl ${args+"${args[@]}"} -fL "https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases?per_page=100&page=$page"
+}
+
+list_all() {
+	local tags= curr_page_size=
+	local -i page=1
+
+	while ! [ "$curr_page_size" = 0 ]; do
+		tags=$(get_releases_page "$page" | awk -F: '/tag_name/ { gsub("[\", ]", "", $2); print($2) }')
+
+		printf "%s\n" "$tags"
+
+		curr_page_size=$(awk '/./ { i++ } END { print(i || 0) }' <<< "$tags")
+		page+=1
+	done
+}
+
+list_all "$@" | tac | xargs
+
