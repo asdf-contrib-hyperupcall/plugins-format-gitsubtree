@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+
+set -e
+set -o pipefail
+
+install_tool() {
+    local version=$2
+    local install_path=$3
+    local tmp_download_dir=$4
+    local binary_name=$5
+
+    local platform
+    local bin_install_path="${install_path}/bin"
+    local binary_path="${bin_install_path}/${binary_name}"
+    local download_url
+    local download_path
+
+    version_string=$(version_string "${version}")
+    platform=$(get_platform "${version_string}")
+    arch=$(get_arch "${version_string}")
+
+    filename=$(get_filename "${version}" "${platform}" "${binary_name}" "${arch}")
+
+    download_url=$(get_download_url "${version}" "${filename}")
+    download_path="${tmp_download_dir}/${filename}"
+
+    echo "Downloading [${binary_name}] from ${download_url} to ${download_path}"
+    curl -Lo "${download_path}" "${download_url}"
+
+    unzip "${download_path}" -d "${tmp_download_dir}"
+
+    echo "Creating bin directory"
+    mkdir -p "${bin_install_path}"
+
+    echo "Cleaning previous binaries"
+    rm -f "${binary_path}" 2>/dev/null || true
+
+    echo "Copying binary"
+    cp "$(get_binary_path_in_archive "${tmp_download_dir}" "${binary_name}" "${version}" "${platform}")" "${binary_path}"
+    chmod +x "${binary_path}"
+}
+
+get_binary_path_in_archive() {
+    local archive_dir=$1
+    local binary_name=$2
+    local version=$3
+    local platform=$4
+
+    echo "${archive_dir}/${binary_name}"
+}
+
+get_platform() {
+    version_string=$1
+
+    if [[ "${OSTYPE}" =~ linux ]]; then
+        echo "linux"
+    fi
+
+    if [[ "${OSTYPE}" =~ darwin ]]; then
+        if [[ "${version_string}" -ge 1008000000 ]]; then
+            echo "darwin"
+        else
+            echo "mac"
+        fi
+    fi
+}
+
+get_arch() {
+    # How arch is represented in the filename changed with version 1.8.0
+    # https://github.com/lingrino/glen/releases/download/v1.8.0/glen_1.8.0_linux_amd64.zip
+    # https://github.com/lingrino/glen/releases/download/v1.7.1/glen_1.7.1_linux_x86_64.zip
+
+    arch=$(uname -m)
+
+    if [[ "${version_string}" -gt 1007001000 ]]; then
+        if [[ ${arch} == "x86_64" ]]; then
+            arch="amd64"
+        fi
+    fi
+
+    echo "${arch}"
+}
+
+get_filename() {
+    local version="$1"
+    local platform="$2"
+    local binary_name="$3"
+    local arch="$4"
+
+    echo "${binary_name}_${version}_${platform}_${arch}.zip"
+}
+
+# https://github.com/lingrino/glen/releases/download/v1.7.0/glen_1.7.0_linux_x86_64.zip
+
+
+get_download_url() {
+    local version="$1"
+    local filename="$2"
+
+    echo "https://github.com/lingrino/glen/releases/download/v${version}/${filename}"
+}
+
+function version_string(){
+    echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'
+}
+
+tmp_download_dir="$(mktemp -d -t 'asdf_XXXXXXXX')"
+trap 'rm -rf "${tmp_download_dir}"' EXIT
+install_tool "${ASDF_INSTALL_TYPE}" "${ASDF_INSTALL_VERSION}" "${ASDF_INSTALL_PATH}" "${tmp_download_dir}" glen
