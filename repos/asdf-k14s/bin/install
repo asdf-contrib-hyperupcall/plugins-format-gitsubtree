@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+
+set \
+  -o nounset \
+  -o pipefail \
+  -o errexit
+
+# required environment variables
+: ${ASDF_INSTALL_TYPE?}
+: ${ASDF_INSTALL_VERSION?}
+: ${ASDF_INSTALL_PATH?}
+
+# detect the tool name
+readonly __dirname="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly toolname="$(basename "$(dirname "${__dirname}")")"
+
+# make a temporary download directory with a cleanup hook
+readonly TMP_DOWNLOAD_DIR="$(mktemp -d -t "asdf_${toolname}_XXXXXX")"
+trap 'rm -rf "${TMP_DOWNLOAD_DIR?}"' EXIT
+
+install () {
+  local -r install_type="$1"
+  local -r version="$2"
+  local -r install_path="$3"
+
+  local -r bin_install_path="${install_path}/bin"
+  local -r download_url="$(get_download_url "${version}")"
+  local -r download_path="${TMP_DOWNLOAD_DIR}/$(get_filename)"
+
+  echo "Downloading ${toolname} version ${version} from ${download_url}"
+  if curl -fsL "${download_url}" -o "${download_path}"; then
+    echo "Cleaning ${toolname} previous binaries"
+    rm -rf "${bin_install_path}/${toolname}"
+
+    echo "Creating ${toolname} bin directory"
+    mkdir -p "${bin_install_path}"
+
+    echo "Installing ${toolname} into bin directory" 
+    mv "${download_path}" "${bin_install_path}/${toolname}"
+    
+    echo "Making ${toolname} executable"
+    chmod +x "${bin_install_path}/${toolname}"
+  else
+    echo "Error: ${toolname} version ${version} not found" >&2
+    exit 1
+  fi
+}
+
+get_os () {
+  uname | tr '[:upper:]' '[:lower:]'
+}
+
+get_arch () {
+  local -r arch="$(uname -m)"
+  case "${arch}" in
+    x86_64)
+      echo amd64
+      ;;
+    arm64|aarch64)
+      echo arm64
+      ;;
+    *)
+      # fallback: use machine's literal arch for download URL
+      # this helps this code be future-proof (ex: s390x)
+      echo "$arch"
+      ;;
+  esac
+}
+
+get_filename () {
+  local -r os="$(get_os)"
+  local -r arch="$(get_arch)"
+  echo "${toolname}-${os}-${arch}"
+}
+
+get_download_url() {
+  local -r version="$1"
+  local -r filename="$(get_filename)"
+  echo "https://github.com/vmware-tanzu/carvel-${toolname}/releases/download/v${version}/${filename}"
+}
+
+install "${ASDF_INSTALL_TYPE}" "${ASDF_INSTALL_VERSION}" "${ASDF_INSTALL_PATH}"
