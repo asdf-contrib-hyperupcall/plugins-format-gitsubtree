@@ -1,0 +1,51 @@
+name: main
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 0 * * 5"
+
+jobs:
+
+  plugin_test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+        driftctl:
+          - v0.11.0
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Test plugin
+        uses: asdf-vm/actions/plugin-test@v2.1.0
+        with:
+          command: driftctl version
+          version: ${{ matrix.driftctl }}
+        env:
+          GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run ShellCheck
+        run: shellcheck bin/*
+
+  format:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install shfmt
+        run: brew install shfmt
+
+      - name: Run shfmt
+        run: shfmt -i 2 -d .
